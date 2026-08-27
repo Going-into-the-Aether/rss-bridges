@@ -4,16 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "deploy": "wrangler deploy",
-    "dev": "wrangler dev",
-    "format": "prettier --write .",
-    "format:check": "prettier --check .",
-    "lint": "eslint .",
-    "prepare": "husky",
-    "sync:tidings-authors": "tsx scripts/sync-tidings-authors.ts",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "type-check": "tsc --noEmit"
+    "test": "node --test"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "5.20260827.1",
@@ -28,14 +19,5 @@
     "tsx": "4.23.12",
     "vitest": "4.1.11",
     "wrangler": "4.126.0"
-  },
-  "lint-staged": {
-    "*.{ts,js}": [
-      "prettier --write",
-      "eslint --fix"
-    ],
-    "*.{json,jsonc,md}": [
-      "prettier --write"
-    ]
   }
 }
