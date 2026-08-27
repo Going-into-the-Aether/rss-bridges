@@ -146,6 +146,47 @@ describe("Tidings source aggregation", () => {
     expect(result.diagnostic.sources.magazine.ok).toBe(false);
   });
 
+  it("preserves records fetched before a later page fails", async () => {
+    const fetcher = vi.fn(async (input: RequestInfo | URL) => {
+      const url = new URL(String(input));
+      if (url.pathname.endsWith("/articles")) return jsonPage([]);
+      return url.searchParams.get("page") === "1"
+        ? jsonPage([record({ type: "magazine" })], 2)
+        : new Response("unavailable", { status: 503 });
+    });
+    const result = await buildTidingsFeed({
+      mode: "bootstrap",
+      bootstrapAfter: "2025-01-01T00:00:00Z",
+      rollingLimit: 200,
+      pageFallbackLimit: 0,
+      fetcher: fetcher as typeof fetch,
+    });
+    expect(result.items).toHaveLength(1);
+    expect(result.diagnostic.partial).toBe(true);
+    expect(result.diagnostic.sources.magazine.recordsFetched).toBe(1);
+    expect(result.diagnostic.sources.magazine.error).toContain("page 2");
+  });
+
+  it("preserves records and reports partial output at the bootstrap page cap", async () => {
+    const fetcher = vi.fn(async (input: RequestInfo | URL) => {
+      const url = new URL(String(input));
+      return url.pathname.endsWith("/articles")
+        ? jsonPage([])
+        : jsonPage([record({ type: "magazine" })], 3);
+    });
+    const result = await buildTidingsFeed({
+      mode: "bootstrap",
+      bootstrapAfter: "2025-01-01T00:00:00Z",
+      rollingLimit: 200,
+      pageFallbackLimit: 0,
+      maxSourcePages: 1,
+      fetcher: fetcher as typeof fetch,
+    });
+    expect(result.items).toHaveLength(1);
+    expect(result.diagnostic.partial).toBe(true);
+    expect(result.diagnostic.sources.magazine.error).toContain("page cap 1");
+  });
+
   it("uses a committed author override before the publication fallback", async () => {
     const unsigned = record({ content: { rendered: "<p>Article without a signature.</p>" } });
     const fetcher = vi.fn(async (input: RequestInfo | URL) => {
@@ -162,6 +203,26 @@ describe("Tidings source aggregation", () => {
     });
     expect(result.items[0].authors).toEqual(["Belinda Stone"]);
     expect(result.diagnostic.authorFallbacks).toBe(0);
+  });
+
+  it("normalizes record URLs before author override lookup", async () => {
+    const unsigned = record({
+      link: "https://TIDINGS.org/articles/habits-of-grace?utm_source=test",
+      content: { rendered: "<p>Article without a signature.</p>" },
+    });
+    const fetcher = vi.fn(async (input: RequestInfo | URL) => {
+      const url = new URL(String(input));
+      return url.pathname.endsWith("/magazine") ? jsonPage([]) : jsonPage([unsigned]);
+    });
+    const result = await buildTidingsFeed({
+      mode: "bootstrap",
+      bootstrapAfter: "2025-01-01T00:00:00Z",
+      rollingLimit: 200,
+      pageFallbackLimit: 0,
+      authorOverrides: { "https://tidings.org/articles/habits-of-grace/": ["Belinda Stone"] },
+      fetcher: fetcher as typeof fetch,
+    });
+    expect(result.items[0].authors).toEqual(["Belinda Stone"]);
   });
 
   it("fails clearly when both sources fail", async () => {

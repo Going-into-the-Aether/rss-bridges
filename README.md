@@ -42,6 +42,7 @@ npm run deploy
 ```
 
 Wrangler owns the `feeds.atwood.fyi` custom domain. No application secrets are required.
+The committed author index is used by default; synchronous page-level author fallback requests are disabled in production.
 
 ## Metadata policy
 

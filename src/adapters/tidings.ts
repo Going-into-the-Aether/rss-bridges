@@ -26,6 +26,7 @@ export interface TidingsOptions {
   bootstrapAfter: string;
   rollingLimit: number;
   pageFallbackLimit?: number;
+  maxSourcePages?: number;
   authorOverrides?: Record<string, string[]>;
   fetcher?: typeof fetch;
   now?: () => Date;
@@ -207,10 +208,25 @@ async function fetchSource(
   let totalPages = 1;
   let pagesFetched = 0;
   const rollingPageCap = Math.ceil(options.rollingLimit / 100) + 1;
+  const pageCap = Math.min(
+    options.maxSourcePages ?? 50,
+    options.mode === "rolling" ? rollingPageCap : Number.POSITIVE_INFINITY,
+  );
 
   try {
     for (let page = 1; page <= totalPages; page += 1) {
-      if (options.mode === "rolling" && page > rollingPageCap) break;
+      if (page > pageCap) {
+        return {
+          records,
+          diagnostic: {
+            ok: false,
+            endpoint,
+            pagesFetched,
+            recordsFetched: records.length,
+            error: `Stopped ${sourceType} after configured page cap ${pageCap}`,
+          },
+        };
+      }
       const url = new URL(endpoint);
       url.searchParams.set("per_page", "100");
       url.searchParams.set("page", String(page));
@@ -238,7 +254,7 @@ async function fetchSource(
     };
   } catch (error) {
     return {
-      records: [],
+      records,
       diagnostic: {
         ok: false,
         endpoint,
@@ -275,8 +291,9 @@ export async function buildTidingsFeed(options: TidingsOptions): Promise<FeedRes
   const sourceResults = await Promise.all(
     SOURCE_TYPES.map((source) => fetchSource(source, options)),
   );
-  const healthySources = sourceResults.filter((result) => result.diagnostic.ok).length;
-  if (healthySources === 0) {
+  const completeSources = sourceResults.filter((result) => result.diagnostic.ok).length;
+  const usableSources = sourceResults.filter((result) => result.records.length > 0).length;
+  if (usableSources === 0) {
     const details = sourceResults.map((result) => result.diagnostic.error).join("; ");
     throw new Error(`All Tidings sources failed: ${details}`);
   }
@@ -297,8 +314,8 @@ export async function buildTidingsFeed(options: TidingsOptions): Promise<FeedRes
   return {
     items,
     diagnostic: {
-      ok: healthySources === SOURCE_TYPES.length,
-      partial: healthySources !== SOURCE_TYPES.length,
+      ok: completeSources === SOURCE_TYPES.length,
+      partial: completeSources !== SOURCE_TYPES.length,
       generatedAt,
       mode: options.mode,
       sources,

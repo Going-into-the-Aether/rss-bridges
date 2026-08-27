@@ -42,5 +42,9 @@ live("live Tidings integration", () => {
       item.url.endsWith("/magazine/bible-weekend-in-greece/"),
     );
     expect(greece?.authors).toEqual(["James Andrews", "Steve Petrou"]);
+    const storm = result.items.find((item) =>
+      item.url.endsWith("/articles/what-the-storm-left-behind/"),
+    );
+    expect(storm?.authors).toEqual(["Nathan Giordano", "Antonia Giordano", "Dave Giordano"]);
   }, 120_000);
 });
