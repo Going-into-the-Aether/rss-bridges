@@ -35,6 +35,21 @@ Refresh the committed historical author index when Tidings markup changes or dia
 npm run sync:tidings-authors
 ```
 
+Preview the one-time Reader backlog import. Dry-run mode fetches and counts eligible articles but never calls Reader:
+
+```bash
+npm run import:tidings-reader
+```
+
+After reviewing the count, run the idempotent import through the supervised Readwise token profile:
+
+```bash
+op run --env-file=~/Developer/UAH/vault/env/readwise-assistant.env.op -- \
+  npm run import:tidings-reader -- --apply --location=archive
+```
+
+Reader deduplicates saves by canonical URL. A repeated run reports existing documents separately from newly created documents. The importer defaults historical documents to Archive and stays below Reader's 50-save-per-minute limit.
+
 ## Deployment
 
 ```bash
@@ -49,4 +64,4 @@ The committed author index is used by default; synchronous page-level author fal
 - Use the displayed Tidings byline, including multiple authors.
 - Never publish the WordPress service account `fm_dev` as an article author.
 - Fall back to `The Christadelphian Tidings` only when no defensible byline can be extracted.
-- Prefer a clean excerpt so Reader can parse the canonical article page for full content.
+- Keep a clean excerpt in `description` and sanitized full article HTML in `content:encoded`.

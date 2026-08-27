@@ -1,4 +1,5 @@
 import { decodeHTML } from "entities";
+import sanitizeHtml from "sanitize-html";
 
 export function decodeHtmlEntities(value: string): string {
   return decodeHTML(value);
@@ -15,6 +16,22 @@ export function stripHtml(value: string): string {
     .replace(/[ \t]+/g, " ")
     .replace(/\s*\n\s*/g, "\n")
     .trim();
+}
+
+export function sanitizeHtmlContent(value: string): string {
+  return sanitizeHtml(value, {
+    allowedTags: sanitizeHtml.defaults.allowedTags.concat(["img", "figure", "figcaption"]),
+    allowedAttributes: {
+      "*": ["class", "id"],
+      a: ["href", "name", "target", "title"],
+      img: ["src", "srcset", "alt", "title", "width", "height", "loading"],
+      td: ["colspan", "rowspan"],
+      th: ["colspan", "rowspan", "scope"],
+      ol: ["start", "type"],
+      blockquote: ["cite"],
+    },
+    allowedSchemes: ["http", "https", "mailto", "tel"],
+  }).trim();
 }
 
 export function xmlEscape(value: string): string {

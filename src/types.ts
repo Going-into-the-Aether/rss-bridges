@@ -6,6 +6,7 @@ export interface FeedItem {
   modifiedAt: string;
   authors: string[];
   description: string;
+  contentHtml: string;
   imageUrl?: string;
   categories: string[];
   sourceType: string;

@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   buildTidingsFeed,
   extractAuthors,
+  extractImageUrl,
   mergeItems,
   normalizeCanonicalUrl,
   type WordPressRecord,
@@ -12,8 +13,8 @@ function record(overrides: Partial<WordPressRecord> = {}): WordPressRecord {
   return {
     id: 1,
     type: "articles",
-    date_gmt: "2026-07-10T13:00:58Z",
-    modified_gmt: "2026-08-25T13:04:03Z",
+    date_gmt: "2026-07-10T13:00:58",
+    modified_gmt: "2026-08-25T13:04:03",
     link: "https://tidings.org/articles/habits-of-grace/",
     title: { rendered: "Habits of Grace" },
     excerpt: null,
@@ -144,9 +145,39 @@ describe("Tidings source aggregation", () => {
     expect(result.items[0].title).toBe("Bible Weekend & Fellowship");
     expect(result.items[0].authors).toEqual(["James Andrews", "Steve Petrou"]);
     expect(result.items[0].imageUrl).toBe("https://tidings.org/image.webp");
+    expect(result.items[0].publishedAt).toBe("2026-07-10T13:00:58Z");
+    expect(result.items[0].contentHtml).toContain("<img");
     expect(result.items[1].authors).toEqual(["Belinda Stone"]);
     expect(result.diagnostic.authorFallbacks).toBe(0);
     expect(String(fetcher.mock.calls[0][0])).toContain("after=2024-12-31T23%3A59%3A59.999Z");
+  });
+
+  it("preserves article markup while removing executable content", async () => {
+    const fetcher = vi.fn(async (input: RequestInfo | URL) => {
+      const url = new URL(String(input));
+      return url.pathname.endsWith("/magazine")
+        ? jsonPage([])
+        : jsonPage([
+            record({
+              content: {
+                rendered:
+                  '<p onclick="alert(1)">Complete <strong>article</strong>.</p>' +
+                  '<script>alert("unsafe")</script><a href="javascript:alert(1)">bad</a>',
+              },
+            }),
+          ]);
+    });
+
+    const result = await buildTidingsFeed({
+      mode: "bootstrap",
+      bootstrapAfter: "2025-01-01T00:00:00Z",
+      rollingLimit: 200,
+      pageFallbackLimit: 0,
+      fetcher: fetcher as typeof fetch,
+    });
+
+    expect(result.items[0].contentHtml).toContain("<strong>article</strong>");
+    expect(result.items[0].contentHtml).not.toMatch(/onclick|script|javascript:/i);
   });
 
   it("returns the healthy source when the other source fails", async () => {
@@ -268,6 +299,13 @@ describe("Tidings source aggregation", () => {
     expect(result.items[0].url).toBe("https://tidings.org/articles/habits-of-grace/");
   });
 
+  it("resolves relative images and rejects executable image schemes", () => {
+    expect(extractImageUrl('<img src="/wp-content/image.webp">')).toBe(
+      "https://tidings.org/wp-content/image.webp",
+    );
+    expect(extractImageUrl('<img src="javascript:alert(1)">')).toBeUndefined();
+  });
+
   it("uses a committed author override before the publication fallback", async () => {
     const unsigned = record({ content: { rendered: "<p>Article without a signature.</p>" } });
     const fetcher = vi.fn(async (input: RequestInfo | URL) => {
@@ -336,6 +374,7 @@ describe("normalization and deduplication", () => {
       modifiedAt: "2026-01-02T00:00:00Z",
       authors: ["The Christadelphian Tidings"],
       description: "short",
+      contentHtml: "<p>short</p>",
       categories: [],
       sourceType: "articles",
       usedFallbackAuthor: true,

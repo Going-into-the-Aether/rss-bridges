@@ -27,7 +27,7 @@ function itemXml(item: FeedItem): string {
       <pubDate>${new Date(item.publishedAt).toUTCString()}</pubDate>
 ${authors}
       <description>${cdata(item.description)}</description>
-      <content:encoded>${cdata(item.description)}</content:encoded>${image}
+      <content:encoded>${cdata(item.contentHtml)}</content:encoded>${image}
 ${categories}
     </item>`;
 }
