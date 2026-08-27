@@ -1,22 +1,47 @@
 # Agent Entry Point
 
 ## Objective
-<!-- What this project does — one paragraph -->
+
+Provide stable, metadata-rich RSS endpoints through one reusable Cloudflare Worker. Each source-specific adapter retrieves canonical content and maps it into a shared feed model. Tidings.org is the first adapter.
 
 ## Stack
-<!-- Languages, key libraries, external services -->
+
+- TypeScript
+- Cloudflare Workers and Wrangler
+- Vitest
+- ESLint and Prettier
+- Husky and lint-staged
 
 ## Key Rules
-- Zero-plaintext secrets — use `op run` or service account injection
-- Follow workspace `.gitignore` conventions — never commit CLAUDE.md, CODEX.md, GEMINI.md, `_*-MANIFEST.md`
-- Run `--dry-run` before any batch mutation
+
+- Zero-plaintext secrets. This Worker currently needs no secrets.
+- Keep source-specific parsing inside `src/adapters/`.
+- Keep RSS generation and XML escaping source-agnostic.
+- Do not emit a source CMS account as an article author.
+- Do not remove the bootstrap mode until Chris confirms the historical Reader import.
+- Never push directly to `main`; use a pull request.
 
 ## Entry Points
-| Script / File | Purpose |
-|---|---|
-| <!-- add rows --> | |
+
+| Script / File             | Purpose                                               |
+| ------------------------- | ----------------------------------------------------- |
+| `src/index.ts`            | HTTP routing and edge-cache behavior                  |
+| `src/adapters/tidings.ts` | Tidings WordPress retrieval and metadata extraction   |
+| `src/rss.ts`              | RSS 2.0 serialization                                 |
+| `wrangler.jsonc`          | Cloudflare deployment and custom-domain configuration |
+
+## Linked AetherOS skills
+
+- Cloudflare
+- Cloudflare Workers Best Practices
+- Wrangler
+- Read the Damn Docs
+- Verification Gate
 
 ## Do Not
-- Commit secrets or generated AI context files
-- Rename `CLAUDE.md`, `CODEX.md`, `GEMINI.md`, or `AGENT.md` (mechanical integrity rule)
-- Push directly to `main` without a PR
+
+- Commit secrets or generated AI context files.
+- Rename `AGENT.md`.
+- Use the legacy Tidings RSS feed as an upstream source.
+- Treat `fm_dev` as an article byline.
+- Remove failed-author diagnostics to make the status endpoint appear healthier.
