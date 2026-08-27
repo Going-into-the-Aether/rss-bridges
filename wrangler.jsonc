@@ -1,0 +1,23 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "rss-bridges",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-26",
+  "observability": {
+    "enabled": true,
+  },
+  "routes": [
+    {
+      "pattern": "feeds.atwood.fyi",
+      "custom_domain": true,
+    },
+  ],
+  "vars": {
+    "TIDINGS_MODE": "bootstrap",
+    "TIDINGS_BOOTSTRAP_AFTER": "2025-01-01T00:00:00Z",
+    "TIDINGS_ROLLING_LIMIT": "200",
+    "TIDINGS_PAGE_FALLBACK_LIMIT": "0",
+    "COMPLETE_CACHE_TTL": "3600",
+    "PARTIAL_CACHE_TTL": "300",
+  },
+}
