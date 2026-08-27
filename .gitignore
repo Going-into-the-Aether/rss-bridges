@@ -1,0 +1,17 @@
+# AI/AetherOS context (generated — do not commit)
+CLAUDE.md
+CODEX.md
+GEMINI.md
+_*-MANIFEST.md
+PLAN.md
+.env
+*.log
+.DS_Store
+
+# AI Context Files (AetherOS)
+CLAUDE.md
+CODEX.md
+GEMINI.md
+KIRO.md
+PLAN.md
+*-MANIFEST.md
