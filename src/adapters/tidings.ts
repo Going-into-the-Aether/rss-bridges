@@ -1,4 +1,4 @@
-import { decodeHtmlEntities, stripHtml } from "../html";
+import { decodeHtmlEntities, sanitizeHtmlContent, stripHtml } from "../html";
 import type { FeedItem, FeedResult, SourceDiagnostic } from "../types";
 import tidingsAuthorOverrides from "../data/tidings-author-overrides.json";
 
@@ -106,7 +106,17 @@ function exclusiveAfter(inclusiveStart: string): string {
 
 export function extractImageUrl(html: string): string | undefined {
   const match = html.match(/<img\b[^>]*\bsrc=["']([^"']+)["']/i);
-  return match ? decodeHtmlEntities(match[1]) : undefined;
+  if (!match) return undefined;
+  try {
+    const url = new URL(decodeHtmlEntities(match[1]), BASE_URL);
+    return url.protocol === "http:" || url.protocol === "https:" ? url.toString() : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function wordpressGmt(value: string): string {
+  return /(?:Z|[+-]\d{2}:\d{2})$/i.test(value) ? value : `${value}Z`;
 }
 
 export function normalizeCanonicalUrl(value: string): string {
@@ -160,10 +170,11 @@ async function mapRecord(
     id: `${record.type}:${record.id}`,
     title: decodeHtmlEntities(stripHtml(record.title.rendered ?? "Untitled")),
     url: canonicalUrl,
-    publishedAt: record.date_gmt,
-    modifiedAt: record.modified_gmt ?? record.date_gmt,
+    publishedAt: wordpressGmt(record.date_gmt),
+    modifiedAt: wordpressGmt(record.modified_gmt ?? record.date_gmt),
     authors: usedFallbackAuthor ? [FALLBACK_AUTHOR] : authors,
     description: descriptionFrom(record),
+    contentHtml: sanitizeHtmlContent(content),
     imageUrl: extractImageUrl(content),
     categories: [],
     sourceType: record.type,

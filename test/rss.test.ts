@@ -12,6 +12,7 @@ describe("RSS rendering", () => {
       modifiedAt: "2026-08-25T14:00:00Z",
       authors: ["James Andrews", "Steve Petrou"],
       description: "A summary with <meaning> & ]]> safely represented.",
+      contentHtml: "<p>The complete article body.</p><p>Second paragraph.</p>",
       imageUrl: "https://tidings.org/image.webp?a=1&b=2",
       categories: ["Community & Fellowship"],
       sourceType: "magazine",
@@ -37,5 +38,11 @@ describe("RSS rendering", () => {
     expect(xml).toContain("<category>Community &amp; Fellowship</category>");
     expect(xml).toContain('atom:link href="https://feeds.atwood.fyi/tidings"');
     expect(xml).toContain("]]]]><![CDATA[>");
+    expect(xml).toContain(
+      "<content:encoded><![CDATA[<p>The complete article body.</p><p>Second paragraph.</p>]]></content:encoded>",
+    );
+    expect(xml).toContain(
+      "<description><![CDATA[A summary with <meaning> & ]]]]><![CDATA[> safely represented.]]></description>",
+    );
   });
 });

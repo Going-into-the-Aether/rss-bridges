@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### 2026-08-27
+
+- Added sanitized full article HTML to `content:encoded` while retaining short feed descriptions.
+- Added a dry-run-first, URL-idempotent Readwise Reader historical import command with full metadata and rate limiting.
+
 ### 2026-08-26
 
 - Added the reusable TypeScript Cloudflare Worker and first Tidings.org adapter.
