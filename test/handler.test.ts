@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { handleRequest } from "../src/index";
+import { handleRequest, tidingsOptions } from "../src/index";
 
 class MemoryCache {
   readonly values = new Map<string, Response>();
@@ -14,6 +14,11 @@ class MemoryCache {
 }
 
 describe("HTTP routing", () => {
+  it("disables synchronous author-page fallbacks by default", () => {
+    expect(tidingsOptions({}).pageFallbackLimit).toBe(0);
+    expect(tidingsOptions({ TIDINGS_PAGE_FALLBACK_LIMIT: "2" }).pageFallbackLimit).toBe(2);
+  });
+
   it("returns 404 and 405 without touching upstream sources", async () => {
     const ctx = { waitUntil: vi.fn() };
     const cache = new MemoryCache();

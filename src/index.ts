@@ -5,6 +5,7 @@ export interface Env {
   TIDINGS_MODE?: "bootstrap" | "rolling";
   TIDINGS_BOOTSTRAP_AFTER?: string;
   TIDINGS_ROLLING_LIMIT?: string;
+  TIDINGS_PAGE_FALLBACK_LIMIT?: string;
   COMPLETE_CACHE_TTL?: string;
   PARTIAL_CACHE_TTL?: string;
 }
@@ -23,11 +24,17 @@ function integerSetting(value: string | undefined, fallback: number): number {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
-function tidingsOptions(env: Env) {
+function nonnegativeIntegerSetting(value: string | undefined, fallback: number): number {
+  const parsed = Number.parseInt(value ?? "", 10);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
+}
+
+export function tidingsOptions(env: Env) {
   return {
     mode: env.TIDINGS_MODE === "rolling" ? ("rolling" as const) : ("bootstrap" as const),
     bootstrapAfter: env.TIDINGS_BOOTSTRAP_AFTER ?? "2025-01-01T00:00:00Z",
     rollingLimit: integerSetting(env.TIDINGS_ROLLING_LIMIT, 200),
+    pageFallbackLimit: nonnegativeIntegerSetting(env.TIDINGS_PAGE_FALLBACK_LIMIT, 0),
   };
 }
 

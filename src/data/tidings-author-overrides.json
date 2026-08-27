@@ -72,7 +72,11 @@
     "Eric Hawthorne",
     "Mark Carr"
   ],
-  "https://tidings.org/articles/what-the-storm-left-behind/": ["Nathan, Antonia", "Dave Giordano"],
+  "https://tidings.org/articles/what-the-storm-left-behind/": [
+    "Nathan Giordano",
+    "Antonia Giordano",
+    "Dave Giordano"
+  ],
   "https://tidings.org/articles/what-your-history-teacher-never-told-you/": ["Jason Hensley"],
   "https://tidings.org/articles/when-silence-speaks/": ["A Sister"],
   "https://tidings.org/articles/whispered-words-of-wisdom/": ["Susanna Lewis"],
