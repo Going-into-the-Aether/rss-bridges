@@ -251,6 +251,23 @@ describe("Tidings source aggregation", () => {
     expect(result.diagnostic.partial).toBe(false);
   });
 
+  it("skips one malformed permalink without failing the feed", async () => {
+    const fetcher = vi.fn(async (input: RequestInfo | URL) => {
+      const url = new URL(String(input));
+      return url.pathname.endsWith("/magazine")
+        ? jsonPage([])
+        : jsonPage([record(), record({ id: 2, link: "not a valid URL" })]);
+    });
+    const result = await buildTidingsFeed({
+      mode: "bootstrap",
+      bootstrapAfter: "2025-01-01T00:00:00Z",
+      rollingLimit: 200,
+      fetcher: fetcher as typeof fetch,
+    });
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0].url).toBe("https://tidings.org/articles/habits-of-grace/");
+  });
+
   it("uses a committed author override before the publication fallback", async () => {
     const unsigned = record({ content: { rendered: "<p>Article without a signature.</p>" } });
     const fetcher = vi.fn(async (input: RequestInfo | URL) => {

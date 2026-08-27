@@ -10,7 +10,7 @@ except Exception:
     print('')
 " 2>/dev/null)
 
-DANGEROUS='(git[[:space:]]+push[^;&|]*(--force([^[:space:]]*)?|-f)([[:space:]]|$)|git[[:space:]]+reset[[:space:]]+--hard|git[[:space:]]+clean[^;&|]*(-[^[:space:]]*f|--force)|git[[:space:]]+branch[[:space:]]+-D|git[[:space:]]+checkout[[:space:]]+(--[[:space:]]|\.[[:space:]]*$))'
+DANGEROUS='(git[[:space:]]+push[^;&|]*(--force([^[:space:]]*)?|-f)([[:space:]]|$)|git[[:space:]]+reset[[:space:]]+--hard|git[[:space:]]+clean[^;&|]*(-[^[:space:]]*f|--force)|git[[:space:]]+branch[[:space:]]+-D|git[[:space:]]+checkout[[:space:]]+(--([[:space:]]|$)|\.([[:space:]]|$)))'
 
 if echo "$CMD" | grep -qE "$DANGEROUS"; then
   echo "BLOCKED by git-guardrails: '$CMD' is a potentially destructive operation." >&2
