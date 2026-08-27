@@ -11,10 +11,5 @@ coverage/
 dist/
 node_modules/
 
-# AI Context Files (AetherOS)
-CLAUDE.md
-CODEX.md
-GEMINI.md
 KIRO.md
-PLAN.md
 *-MANIFEST.md
