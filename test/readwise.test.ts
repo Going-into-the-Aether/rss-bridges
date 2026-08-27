@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { importReaderBacklog, toReaderDocument } from "../src/readwise";
-import type { FeedItem } from "../src/types";
+import { assertCompleteFeed, importReaderBacklog, toReaderDocument } from "../src/readwise";
+import type { FeedItem, FeedResult } from "../src/types";
 
 const item: FeedItem = {
   id: "articles:1",
@@ -18,6 +18,14 @@ const item: FeedItem = {
 };
 
 describe("Reader historical import", () => {
+  it("refuses to import a partial upstream result", () => {
+    const feed = {
+      items: [item],
+      diagnostic: { ok: false, partial: true },
+    } as FeedResult;
+    expect(() => assertCompleteFeed(feed)).toThrow("Refusing partial Tidings import");
+  });
+
   it("maps full content and metadata into the Reader save contract", () => {
     expect(toReaderDocument(item, "archive")).toEqual({
       url: item.url,

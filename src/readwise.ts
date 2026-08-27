@@ -1,4 +1,4 @@
-import type { FeedItem } from "./types";
+import type { FeedItem, FeedResult } from "./types";
 
 export type ReaderLocation = "new" | "later" | "archive" | "feed";
 
@@ -26,6 +26,12 @@ export interface ReaderImportResult {
   created: number;
   existing: number;
   failed: number;
+}
+
+export function assertCompleteFeed(feed: FeedResult): void {
+  if (!feed.diagnostic.ok || feed.diagnostic.partial) {
+    throw new Error("Refusing partial Tidings import: every upstream source must complete");
+  }
 }
 
 export function toReaderDocument(

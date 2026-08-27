@@ -21,9 +21,14 @@ export function sanitizeHtmlContent(value: string): string {
   return value
     .replace(/<(script|style|iframe|object|embed|form)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, "")
     .replace(/<(?:script|style|iframe|object|embed|form)\b[^>]*\/?\s*>/gi, "")
-    .replace(/\s+on[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, "")
-    .replace(/\s+srcdoc\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, "")
-    .replace(/\s+(href|src)\s*=\s*(["'])\s*(?:javascript|data\s*:\s*text\/html)[\s\S]*?\2/gi, "")
+    .replace(/<[^>]*>/g, (tag) =>
+      tag
+        .replace(/(?:\s+|\/)(?:on[a-z]+|srcdoc)\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, "")
+        .replace(
+          /(?:\s+|\/)(?:href|src)\s*=\s*(?:(["'])\s*(?:javascript|data\s*:\s*text\/html)[\s\S]*?\1|(?:javascript|data\s*:\s*text\/html)[^\s>]*)/gi,
+          "",
+        ),
+    )
     .trim();
 }
 

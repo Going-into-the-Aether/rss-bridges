@@ -1,5 +1,10 @@
 import { buildTidingsFeed } from "../src/adapters/tidings";
-import { importReaderBacklog, saveReaderDocument, type ReaderLocation } from "../src/readwise";
+import {
+  assertCompleteFeed,
+  importReaderBacklog,
+  saveReaderDocument,
+  type ReaderLocation,
+} from "../src/readwise";
 
 const apply = process.argv.includes("--apply");
 const locationArg = process.argv.find((argument) => argument.startsWith("--location="));
@@ -14,6 +19,7 @@ const feed = await buildTidingsFeed({
   rollingLimit: 200,
   pageFallbackLimit: 0,
 });
+assertCompleteFeed(feed);
 
 console.log(`Eligible Tidings articles: ${feed.items.length}`);
 if (!apply) {
