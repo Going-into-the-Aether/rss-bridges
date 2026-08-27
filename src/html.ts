@@ -1,4 +1,5 @@
 import { decodeHTML } from "entities";
+import sanitizeHtml from "sanitize-html";
 
 export function decodeHtmlEntities(value: string): string {
   return decodeHTML(value);
@@ -18,18 +19,15 @@ export function stripHtml(value: string): string {
 }
 
 export function sanitizeHtmlContent(value: string): string {
-  return value
-    .replace(/<(script|style|iframe|object|embed|form)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, "")
-    .replace(/<(?:script|style|iframe|object|embed|form)\b[^>]*\/?\s*>/gi, "")
-    .replace(/<[^>]*>/g, (tag) =>
-      tag
-        .replace(/(?:\s+|\/)(?:on[a-z]+|srcdoc)\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, "")
-        .replace(
-          /(?:\s+|\/)(?:href|src)\s*=\s*(?:(["'])\s*(?:javascript|data\s*:\s*text\/html)[\s\S]*?\1|(?:javascript|data\s*:\s*text\/html)[^\s>]*)/gi,
-          "",
-        ),
-    )
-    .trim();
+  return sanitizeHtml(value, {
+    allowedTags: sanitizeHtml.defaults.allowedTags.concat(["img", "figure", "figcaption"]),
+    allowedAttributes: {
+      "*": ["class"],
+      a: ["href", "name", "target", "title"],
+      img: ["src", "srcset", "alt", "title", "width", "height", "loading"],
+    },
+    allowedSchemes: ["http", "https", "mailto", "tel"],
+  }).trim();
 }
 
 export function xmlEscape(value: string): string {

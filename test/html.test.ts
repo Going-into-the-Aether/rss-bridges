@@ -19,11 +19,14 @@ describe("HTML and XML text handling", () => {
     const html =
       "<p>Setting one = 1 and online = true.</p>" +
       '<a href=javascript:alert(1) onclick="alert(2)">unsafe</a>' +
+      '<a title="5 > 3" onclick="alert(4)">quoted angle</a>' +
+      '<a href="javascript&colon;alert(5)">encoded scheme</a>' +
       '<svg/onload="alert(3)"></svg>';
 
     const sanitized = sanitizeHtmlContent(html);
 
     expect(sanitized).toContain("Setting one = 1 and online = true.");
+    expect(sanitized).toContain('title="5 &gt; 3"');
     expect(sanitized).not.toMatch(/javascript:|onclick|onload/i);
   });
 });
