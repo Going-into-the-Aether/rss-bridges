@@ -56,6 +56,11 @@ function splitAuthorLine(value: string): string[] {
   const normalized = value.replace(/^\s*by\s+/i, "").replace(/^[,\s]+|[,\s]+$/g, "");
   const semicolonParts = normalized.split(/\s*;\s*/);
   return semicolonParts.flatMap((part) => {
+    const commaParts = part.split(/\s*,\s*/).filter(Boolean);
+    if (commaParts.length > 1) {
+      const names = commaParts.flatMap((name) => splitAuthorLine(name));
+      if (names.length >= commaParts.length) return names;
+    }
     const conjunction = part.match(/^(.+?)\s+(?:and|&)\s+(.+)$/i);
     if (conjunction && conjunction[1].trim().split(/\s+/).length >= 2) {
       return [conjunction[1], conjunction[2]].map((name) => name.trim()).filter(plausibleAuthor);
@@ -76,12 +81,18 @@ export function extractAuthors(html: string): string[] {
   const authors = paragraphBodies.slice(-6).flatMap((paragraph) => {
     if (!/<br\s*\/?\s*>/i.test(paragraph)) return [];
     const withoutBuilderClosers = paragraph.replace(/(?:\s*\[\/[a-z0-9_-]+\])+\s*$/gi, "");
-    const italic = withoutBuilderClosers.match(/^\s*<(?:i|em)\b[^>]*>([\s\S]*?)<\/(?:i|em)>\s*$/i);
-    const signatureBody = italic?.[1] ?? withoutBuilderClosers;
+    const firstBreak = withoutBuilderClosers.search(/<br\s*\/?\s*>/i);
+    const signatureStart = [...withoutBuilderClosers.matchAll(/<(?:i|em)\b[^>]*>/gi)]
+      .filter((match) => match.index < firstBreak)
+      .at(-1)?.index;
+    const signatureBody =
+      signatureStart === undefined
+        ? withoutBuilderClosers
+        : withoutBuilderClosers.slice(signatureStart);
     const lines = stripHtml(signatureBody).split("\n");
     if (!lines.slice(1).some((line) => /ecclesia/i.test(line))) return [];
     const firstLine = lines[0]?.trim() ?? "";
-    const beforeLocation = firstLine.split(",")[0]?.trim() ?? "";
+    const beforeLocation = firstLine.replace(/,\s*$/, "").trim();
     return splitAuthorLine(beforeLocation);
   });
   return unique(authors);
@@ -138,9 +149,8 @@ async function mapRecord(
   authorOverrides: Record<string, string[]>,
 ): Promise<FeedItem> {
   const content = record.content?.rendered ?? "";
-  let authors = extractAuthors(content);
   const canonicalUrl = normalizeCanonicalUrl(record.link);
-  if (authors.length === 0) authors = authorOverrides[canonicalUrl] ?? [];
+  let authors = authorOverrides[canonicalUrl] ?? extractAuthors(content);
   if (authors.length === 0 && allowPageFallback) {
     authors = await fallbackAuthorsFromPage(record.link, fetcher);
   }
@@ -216,6 +226,7 @@ async function fetchSource(
   try {
     for (let page = 1; page <= totalPages; page += 1) {
       if (page > pageCap) {
+        if (options.mode === "rolling") break;
         return {
           records,
           diagnostic: {
@@ -292,7 +303,9 @@ export async function buildTidingsFeed(options: TidingsOptions): Promise<FeedRes
     SOURCE_TYPES.map((source) => fetchSource(source, options)),
   );
   const completeSources = sourceResults.filter((result) => result.diagnostic.ok).length;
-  const usableSources = sourceResults.filter((result) => result.records.length > 0).length;
+  const usableSources = sourceResults.filter(
+    (result) => result.diagnostic.ok || result.records.length > 0,
+  ).length;
   if (usableSources === 0) {
     const details = sourceResults.map((result) => result.diagnostic.error).join("; ");
     throw new Error(`All Tidings sources failed: ${details}`);

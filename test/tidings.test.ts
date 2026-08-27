@@ -77,6 +77,28 @@ describe("Tidings author extraction", () => {
     ]);
     expect(extractAuthors("<div>By <b>fm_dev</b></div>")).toEqual([]);
   });
+
+  it("splits three explicit authors into separate creators", () => {
+    expect(
+      extractAuthors("<div>By <b>Nathan Giordano, Antonia Giordano and Dave Giordano</b></div>"),
+    ).toEqual(["Nathan Giordano", "Antonia Giordano", "Dave Giordano"]);
+  });
+
+  it("extracts a signature nested after prose without including the prose", () => {
+    expect(
+      extractAuthors(
+        "<p>May we all be faithful. <i>Belinda Stone,<br />Riverwood Ecclesia, NSW</i></p>",
+      ),
+    ).toEqual(["Belinda Stone"]);
+  });
+
+  it("keeps a location when the italic signature closes before Ecclesia", () => {
+    expect(
+      extractAuthors(
+        "<p><span><i>James DiLiberto,<br />Canterbury </i></span><i>Ecclesia, VIC</i></p>",
+      ),
+    ).toEqual(["James DiLiberto"]);
+  });
 });
 
 describe("Tidings source aggregation", () => {
@@ -185,6 +207,48 @@ describe("Tidings source aggregation", () => {
     expect(result.items).toHaveLength(1);
     expect(result.diagnostic.partial).toBe(true);
     expect(result.diagnostic.sources.magazine.error).toContain("page cap 1");
+  });
+
+  it("treats the rolling fetch cap as normal completion", async () => {
+    const fetcher = vi.fn(async (input: RequestInfo | URL) => {
+      const url = new URL(String(input));
+      const type = url.pathname.endsWith("/magazine") ? "magazine" : "articles";
+      const page = Number(url.searchParams.get("page"));
+      return jsonPage(
+        [
+          record({
+            id: page,
+            type,
+            link: `https://tidings.org/${type}/item-${page}/`,
+          }),
+        ],
+        50,
+      );
+    });
+    const result = await buildTidingsFeed({
+      mode: "rolling",
+      bootstrapAfter: "2025-01-01T00:00:00Z",
+      rollingLimit: 200,
+      pageFallbackLimit: 0,
+      fetcher: fetcher as typeof fetch,
+    });
+    expect(result.diagnostic.partial).toBe(false);
+    expect(result.diagnostic.ok).toBe(true);
+    expect(fetcher).toHaveBeenCalledTimes(6);
+  });
+
+  it("returns a valid empty feed when both sources are healthy and empty", async () => {
+    const fetcher = vi.fn(async () => jsonPage([]));
+    const result = await buildTidingsFeed({
+      mode: "bootstrap",
+      bootstrapAfter: "2030-01-01T00:00:00Z",
+      rollingLimit: 200,
+      pageFallbackLimit: 0,
+      fetcher: fetcher as typeof fetch,
+    });
+    expect(result.items).toEqual([]);
+    expect(result.diagnostic.ok).toBe(true);
+    expect(result.diagnostic.partial).toBe(false);
   });
 
   it("uses a committed author override before the publication fallback", async () => {

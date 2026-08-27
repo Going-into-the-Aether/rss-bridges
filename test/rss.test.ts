@@ -36,6 +36,6 @@ describe("RSS rendering", () => {
     expect(xml).toContain('media:thumbnail url="https://tidings.org/image.webp?a=1&amp;b=2"');
     expect(xml).toContain("<category>Community &amp; Fellowship</category>");
     expect(xml).toContain('atom:link href="https://feeds.atwood.fyi/tidings"');
-    expect(xml).toContain("]] ]]><![CDATA[>");
+    expect(xml).toContain("]]]]><![CDATA[>");
   });
 });
