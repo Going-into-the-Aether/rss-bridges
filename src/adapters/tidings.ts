@@ -179,31 +179,40 @@ async function mapInBatches(
   batchSize = 10,
 ): Promise<FeedItem[]> {
   const items: FeedItem[] = [];
-  const pageFallbackIds = new Set(
-    records
-      .filter(
-        (record) =>
-          extractAuthors(record.content?.rendered ?? "").length === 0 &&
-          !authorOverrides[normalizeCanonicalUrl(record.link)],
-      )
-      .slice(0, pageFallbackLimit)
-      .map((record) => `${record.type}:${record.id}`),
-  );
+  const pageFallbackIds =
+    pageFallbackLimit <= 0
+      ? new Set<string>()
+      : new Set(
+          records
+            .filter((record) => {
+              try {
+                return (
+                  extractAuthors(record.content?.rendered ?? "").length === 0 &&
+                  !authorOverrides[normalizeCanonicalUrl(record.link)]
+                );
+              } catch {
+                return false;
+              }
+            })
+            .slice(0, pageFallbackLimit)
+            .map((record) => `${record.type}:${record.id}`),
+        );
   for (let index = 0; index < records.length; index += batchSize) {
-    items.push(
-      ...(await Promise.all(
-        records
-          .slice(index, index + batchSize)
-          .map((record) =>
-            mapRecord(
-              record,
-              fetcher,
-              pageFallbackIds.has(`${record.type}:${record.id}`),
-              authorOverrides,
-            ),
-          ),
-      )),
+    const mapped = await Promise.all(
+      records.slice(index, index + batchSize).map(async (record) => {
+        try {
+          return await mapRecord(
+            record,
+            fetcher,
+            pageFallbackIds.has(`${record.type}:${record.id}`),
+            authorOverrides,
+          );
+        } catch {
+          return null;
+        }
+      }),
     );
+    items.push(...mapped.filter((item): item is FeedItem => item !== null));
   }
   return items;
 }
@@ -314,7 +323,7 @@ export async function buildTidingsFeed(options: TidingsOptions): Promise<FeedRes
   const mapped = await mapInBatches(
     sourceResults.flatMap((result) => result.records),
     fetcher,
-    options.pageFallbackLimit ?? 2,
+    options.pageFallbackLimit ?? 0,
     options.authorOverrides ?? tidingsAuthorOverrides,
   );
   let items = mergeItems(mapped);
