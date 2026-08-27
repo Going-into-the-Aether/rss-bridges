@@ -22,9 +22,13 @@ export function sanitizeHtmlContent(value: string): string {
   return sanitizeHtml(value, {
     allowedTags: sanitizeHtml.defaults.allowedTags.concat(["img", "figure", "figcaption"]),
     allowedAttributes: {
-      "*": ["class"],
+      "*": ["class", "id"],
       a: ["href", "name", "target", "title"],
       img: ["src", "srcset", "alt", "title", "width", "height", "loading"],
+      td: ["colspan", "rowspan"],
+      th: ["colspan", "rowspan", "scope"],
+      ol: ["start", "type"],
+      blockquote: ["cite"],
     },
     allowedSchemes: ["http", "https", "mailto", "tel"],
   }).trim();

@@ -29,4 +29,12 @@ describe("HTML and XML text handling", () => {
     expect(sanitized).toContain('title="5 &gt; 3"');
     expect(sanitized).not.toMatch(/javascript:|onclick|onload/i);
   });
+
+  it("preserves structural article attributes", () => {
+    const sanitized = sanitizeHtmlContent(
+      '<h2 id="section">Section</h2><table><tr><td colspan="2">Text</td></tr></table>',
+    );
+    expect(sanitized).toContain('<h2 id="section">');
+    expect(sanitized).toContain('colspan="2"');
+  });
 });

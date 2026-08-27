@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   buildTidingsFeed,
   extractAuthors,
+  extractImageUrl,
   mergeItems,
   normalizeCanonicalUrl,
   type WordPressRecord,
@@ -12,8 +13,8 @@ function record(overrides: Partial<WordPressRecord> = {}): WordPressRecord {
   return {
     id: 1,
     type: "articles",
-    date_gmt: "2026-07-10T13:00:58Z",
-    modified_gmt: "2026-08-25T13:04:03Z",
+    date_gmt: "2026-07-10T13:00:58",
+    modified_gmt: "2026-08-25T13:04:03",
     link: "https://tidings.org/articles/habits-of-grace/",
     title: { rendered: "Habits of Grace" },
     excerpt: null,
@@ -144,6 +145,7 @@ describe("Tidings source aggregation", () => {
     expect(result.items[0].title).toBe("Bible Weekend & Fellowship");
     expect(result.items[0].authors).toEqual(["James Andrews", "Steve Petrou"]);
     expect(result.items[0].imageUrl).toBe("https://tidings.org/image.webp");
+    expect(result.items[0].publishedAt).toBe("2026-07-10T13:00:58Z");
     expect(result.items[0].contentHtml).toContain("<img");
     expect(result.items[1].authors).toEqual(["Belinda Stone"]);
     expect(result.diagnostic.authorFallbacks).toBe(0);
@@ -295,6 +297,13 @@ describe("Tidings source aggregation", () => {
     });
     expect(result.items).toHaveLength(1);
     expect(result.items[0].url).toBe("https://tidings.org/articles/habits-of-grace/");
+  });
+
+  it("resolves relative images and rejects executable image schemes", () => {
+    expect(extractImageUrl('<img src="/wp-content/image.webp">')).toBe(
+      "https://tidings.org/wp-content/image.webp",
+    );
+    expect(extractImageUrl('<img src="javascript:alert(1)">')).toBeUndefined();
   });
 
   it("uses a committed author override before the publication fallback", async () => {
