@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "engines": {
-    "node": "^22.13.0 || >=24.0.0"
+    "node": "^24.0.0 || >=26.0.0"
   },
   "scripts": {
     "deploy": "wrangler deploy",
@@ -21,7 +21,7 @@
   "devDependencies": {
     "@cloudflare/workers-types": "5.20260827.1",
     "@eslint/js": "10.0.1",
-    "@types/node": "26.4.0",
+    "@types/node": "24.13.3",
     "eslint": "10.0.1",
     "husky": "9.1.7",
     "lint-staged": "17.3.0",
