@@ -41,5 +41,8 @@
     "*.{json,jsonc,md}": [
       "prettier --write"
     ]
+  },
+  "dependencies": {
+    "entities": "8.0.0"
   }
 }
