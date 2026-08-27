@@ -11,6 +11,7 @@
     "dev": "wrangler dev",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "import:tidings-reader": "tsx scripts/import-tidings-reader.ts",
     "lint": "eslint .",
     "prepare": "husky",
     "sync:tidings-authors": "tsx scripts/sync-tidings-authors.ts",

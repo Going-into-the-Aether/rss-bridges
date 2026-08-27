@@ -14,4 +14,4 @@
 
 ## Current phase
 
-The Tidings adapter is implemented in historical bootstrap mode for content published from January 1, 2025 onward. Local and live integration verification are complete; draft PR review and Cloudflare deployment remain.
+The Tidings adapter is deployed in historical bootstrap mode for content published from January 1, 2025 onward. Issue #7 adds full-content RSS output and a one-time idempotent Reader import path because Reader subscriptions only load the five newest existing items. Keep bootstrap mode active until Chris validates full article bodies and the historical import.

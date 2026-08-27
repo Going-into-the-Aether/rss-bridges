@@ -1,4 +1,4 @@
-import { decodeHtmlEntities, stripHtml } from "../html";
+import { decodeHtmlEntities, sanitizeHtmlContent, stripHtml } from "../html";
 import type { FeedItem, FeedResult, SourceDiagnostic } from "../types";
 import tidingsAuthorOverrides from "../data/tidings-author-overrides.json";
 
@@ -164,6 +164,7 @@ async function mapRecord(
     modifiedAt: record.modified_gmt ?? record.date_gmt,
     authors: usedFallbackAuthor ? [FALLBACK_AUTHOR] : authors,
     description: descriptionFrom(record),
+    contentHtml: sanitizeHtmlContent(content),
     imageUrl: extractImageUrl(content),
     categories: [],
     sourceType: record.type,
