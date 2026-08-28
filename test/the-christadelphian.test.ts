@@ -162,7 +162,7 @@ describe("theChristadelphian.com adapter", () => {
       if (url.hostname === "raw.githubusercontent.com") {
         return new Response(
           JSON.stringify({ fetchedAt: "2026-08-28T20:00:00Z", posts: [post()] }),
-          { headers: { "Content-Type": "application/json; charset=utf-8" } },
+          { headers: { "Content-Type": "text/plain; charset=utf-8" } },
         );
       }
       return new Response("<html>Intercepted</html>", {

@@ -63,11 +63,7 @@ async function fetchSnapshot(fetcher: typeof fetch): Promise<SourceFetch> {
   const response = await fetcher(SNAPSHOT_ENDPOINT, {
     headers: { "User-Agent": "rss-bridges/1.0 (+https://feeds.atwood.fyi)" },
   });
-  const contentType = response.headers.get("Content-Type") ?? "";
   if (!response.ok) throw new Error(`HTTP ${response.status} from data-branch snapshot`);
-  if (!/\bapplication\/json\b/i.test(contentType)) {
-    throw new Error(`unexpected snapshot content type ${contentType || "missing"}`);
-  }
   const snapshot = (await response.json()) as Partial<ChristadelphianSnapshot>;
   if (!snapshot.fetchedAt || Number.isNaN(new Date(snapshot.fetchedAt).getTime())) {
     throw new Error("snapshot has no valid fetchedAt timestamp");
