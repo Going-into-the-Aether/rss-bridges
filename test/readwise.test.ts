@@ -42,6 +42,19 @@ describe("Reader historical import", () => {
     });
   });
 
+  it("supports source-specific importer identity and category tags", () => {
+    expect(
+      toReaderDocument(item, "later", {
+        savedUsing: "rss-bridges-the-christadelphian-bootstrap",
+        tags: ["the-christadelphian", "historical-import", "faith-alive"],
+      }),
+    ).toMatchObject({
+      saved_using: "rss-bridges-the-christadelphian-bootstrap",
+      tags: ["the-christadelphian", "historical-import", "faith-alive"],
+      location: "later",
+    });
+  });
+
   it("defaults historical imports to Later", () => {
     expect(toReaderDocument(item).location).toBe("later");
   });
@@ -64,5 +77,24 @@ describe("Reader historical import", () => {
       wait: async () => undefined,
     });
     expect(result).toEqual({ eligible: 2, created: 1, existing: 1, failed: 0 });
+  });
+
+  it("passes source-specific document options through the importer", async () => {
+    const save = vi.fn().mockResolvedValue({ status: 201, id: "new-id" });
+    await importReaderBacklog([item], {
+      apply: true,
+      save,
+      wait: async () => undefined,
+      documentOptions: {
+        savedUsing: "rss-bridges-the-christadelphian-bootstrap",
+        tags: (feedItem) => ["the-christadelphian", feedItem.sourceType],
+      },
+    });
+    expect(save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        saved_using: "rss-bridges-the-christadelphian-bootstrap",
+        tags: ["the-christadelphian", "articles"],
+      }),
+    );
   });
 });
