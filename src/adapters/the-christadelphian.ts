@@ -8,6 +8,8 @@ const POSTS_ENDPOINTS = [
   { base: `${BASE_URL}/`, restRoute: "/wp/v2/posts" },
   { base: "https://www.thechristadelphian.com/wp-json/wp/v2/posts" },
 ] as const;
+const SNAPSHOT_ENDPOINT =
+  "https://raw.githubusercontent.com/Going-into-the-Aether/rss-bridges/data/the-christadelphian-posts.json";
 const FALLBACK_AUTHOR = "The Christadelphian Office";
 const CATEGORY_LABELS: Record<number, string> = {
   1300: "The Christadelphian",
@@ -50,6 +52,40 @@ export interface ChristadelphianOptions {
 interface SourceFetch {
   records: ChristadelphianPost[];
   diagnostic: SourceDiagnostic;
+}
+
+interface ChristadelphianSnapshot {
+  fetchedAt: string;
+  posts: ChristadelphianPost[];
+}
+
+async function fetchSnapshot(fetcher: typeof fetch): Promise<SourceFetch> {
+  const response = await fetcher(SNAPSHOT_ENDPOINT, {
+    headers: { "User-Agent": "rss-bridges/1.0 (+https://feeds.atwood.fyi)" },
+  });
+  const contentType = response.headers.get("Content-Type") ?? "";
+  if (!response.ok) throw new Error(`HTTP ${response.status} from data-branch snapshot`);
+  if (!/\bapplication\/json\b/i.test(contentType)) {
+    throw new Error(`unexpected snapshot content type ${contentType || "missing"}`);
+  }
+  const snapshot = (await response.json()) as Partial<ChristadelphianSnapshot>;
+  if (!snapshot.fetchedAt || Number.isNaN(new Date(snapshot.fetchedAt).getTime())) {
+    throw new Error("snapshot has no valid fetchedAt timestamp");
+  }
+  if (!Array.isArray(snapshot.posts) || snapshot.posts.length === 0) {
+    throw new Error("snapshot has no posts array");
+  }
+  return {
+    records: snapshot.posts,
+    diagnostic: {
+      ok: true,
+      endpoint: SNAPSHOT_ENDPOINT,
+      pagesFetched: 1,
+      recordsFetched: snapshot.posts.length,
+      fallback: true,
+      snapshotGeneratedAt: snapshot.fetchedAt,
+    },
+  };
 }
 
 function plausibleAuthor(value: string): boolean {
@@ -247,6 +283,25 @@ async function fetchPosts(options: ChristadelphianOptions): Promise<SourceFetch>
       },
     };
   } catch (error) {
+    if (records.length === 0) {
+      try {
+        return await fetchSnapshot(fetcher);
+      } catch (snapshotError) {
+        const liveError = error instanceof Error ? error.message : String(error);
+        const relayError =
+          snapshotError instanceof Error ? snapshotError.message : String(snapshotError);
+        return {
+          records,
+          diagnostic: {
+            ok: false,
+            endpoint: diagnosticEndpoint,
+            pagesFetched,
+            recordsFetched: records.length,
+            error: `${liveError}; snapshot fallback failed: ${relayError}`,
+          },
+        };
+      }
+    }
     return {
       records,
       diagnostic: {

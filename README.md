@@ -11,7 +11,7 @@ The adapters serve Tidings.org and theChristadelphian.com with canonical URLs, d
 | <https://feeds.atwood.fyi/tidings> | Tidings.org RSS 2.0 feed |
 | <https://feeds.atwood.fyi/tidings/status> | Source, extraction, partial-feed, and author-fallback diagnostics |
 | <https://feeds.atwood.fyi/the-christadelphian> | Combined The Christadelphian and Faith Alive full-content RSS feed |
-| <https://feeds.atwood.fyi/the-christadelphian/status> | WordPress source, item-count, and author-fallback diagnostics |
+| <https://feeds.atwood.fyi/the-christadelphian/status> | Live or relay source, snapshot timestamp, item-count, and author-fallback diagnostics |
 
 Production currently runs in bootstrap mode and includes articles published on or after January 1, 2025. The configured steady-state mode retains the newest 200 items after bootstrap validation is complete.
 
@@ -21,11 +21,12 @@ The theChristadelphian.com adapter initially includes its complete public blog c
 
 - `src/adapters/tidings.ts` retrieves Tidings WordPress content and extracts source-specific metadata.
 - `src/adapters/the-christadelphian.ts` uses the public WordPress posts API, resolves featured media, preserves the two publication categories, and retains the complete sanitized article body without truncating on editorial headings.
+- `.github/workflows/update-christadelphian-snapshot.yml` refreshes an approved public snapshot on the isolated `data` branch every six hours. The Worker uses it only when every direct WordPress endpoint is unavailable to Cloudflare egress.
 - `src/rss.ts` serializes the shared feed model as RSS 2.0.
 - `src/index.ts` provides Worker routing, diagnostics, and explicit edge caching.
 - `src/data/tidings-author-overrides.json` preserves reviewed historical bylines when source markup is insufficient.
 
-The Worker rejects incomplete historical imports, publishes partial-source diagnostics, and uses a shorter cache lifetime for partial responses.
+The Worker rejects incomplete historical imports, publishes partial-source diagnostics, and uses a shorter cache lifetime for partial responses. Relay-backed diagnostics identify the raw snapshot endpoint and its `snapshotGeneratedAt` timestamp.
 
 ## RSS and Reader behavior
 
@@ -99,7 +100,7 @@ npx wrangler deploy --dry-run
 
 ## Repository hygiene
 
-Local agent configuration, GitHub/AetherOS templates, Husky hooks, editor state, Wrangler state, credentials, and operator notes are intentionally ignored. Portable project configuration such as `.gitattributes`, `.gitignore`, ESLint, Prettier, TypeScript, Vitest, and Wrangler configuration remains versioned for reproducible development.
+Local agent configuration, GitHub/AetherOS templates, Husky hooks, editor state, Wrangler state, credentials, and operator notes are intentionally ignored. The single snapshot-refresh workflow is explicitly allowed through `.gitignore`; other `.github` content remains ignored. Portable project configuration such as `.gitattributes`, `.gitignore`, ESLint, Prettier, TypeScript, Vitest, and Wrangler configuration remains versioned for reproducible development.
 
 ## Security
 

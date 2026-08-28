@@ -5,6 +5,7 @@
 ### 2026-08-28
 
 - Added WordPress REST endpoint failover when Cloudflare Worker egress receives an HTML interception response.
+- Added an approved six-hour GitHub data-branch relay for Cloudflare environments blocked by the publisher origin.
 
 ### 2026-08-27
 
