@@ -13,7 +13,6 @@
     "format:check": "prettier --check .",
     "import:tidings-reader": "tsx scripts/import-tidings-reader.ts",
     "lint": "eslint .",
-    "prepare": "husky",
     "sync:tidings-authors": "tsx scripts/sync-tidings-authors.ts",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -25,8 +24,6 @@
     "@types/node": "24.13.3",
     "@types/sanitize-html": "^2.16.1",
     "eslint": "10.0.1",
-    "husky": "9.1.7",
-    "lint-staged": "17.3.0",
     "prettier": "3.9.6",
     "tsx": "4.23.12",
     "typescript": "6.0.3",
@@ -34,15 +31,6 @@
     "vite": "8.2.2",
     "vitest": "4.1.11",
     "wrangler": "4.126.0"
-  },
-  "lint-staged": {
-    "*.{ts,js}": [
-      "prettier --write",
-      "eslint --fix"
-    ],
-    "*.{json,jsonc,md}": [
-      "prettier --write"
-    ]
   },
   "dependencies": {
     "entities": "8.0.0",
