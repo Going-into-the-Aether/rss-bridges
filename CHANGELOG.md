@@ -4,6 +4,7 @@
 
 ### 2026-08-27
 
+- Added a combined full-content theChristadelphian.com blog adapter with The Christadelphian/Faith Alive source categories, complete public backlog bootstrap, featured images, safe author fallback diagnostics, and a Reader Later importer.
 - Deployed the Tidings adapter to `feeds.atwood.fyi` with 283 bootstrap items and zero author fallbacks.
 - Added sanitized full article HTML to both RSS item `description` and `content:encoded` for Reader compatibility.
 - Added a dry-run-first, URL-idempotent Readwise Reader historical importer with full metadata, rate limiting, and Later as its default destination.

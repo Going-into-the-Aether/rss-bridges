@@ -12,6 +12,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "import:tidings-reader": "tsx scripts/import-tidings-reader.ts",
+    "import:christadelphian-reader": "tsx scripts/import-christadelphian-reader.ts",
     "lint": "eslint .",
     "sync:tidings-authors": "tsx scripts/sync-tidings-authors.ts",
     "test": "vitest run",
