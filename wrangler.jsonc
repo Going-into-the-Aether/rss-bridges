@@ -2,7 +2,7 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "rss-bridges",
   "main": "src/index.ts",
-  "compatibility_date": "2026-08-26",
+  "compatibility_date": "2026-08-28",
   "observability": {
     "enabled": true,
   },
@@ -17,6 +17,9 @@
     "TIDINGS_BOOTSTRAP_AFTER": "2025-01-01T00:00:00Z",
     "TIDINGS_ROLLING_LIMIT": "200",
     "TIDINGS_PAGE_FALLBACK_LIMIT": "0",
+    "CHRISTADELPHIAN_MODE": "bootstrap",
+    "CHRISTADELPHIAN_BOOTSTRAP_AFTER": "2024-01-01T00:00:00Z",
+    "CHRISTADELPHIAN_ROLLING_LIMIT": "200",
     "COMPLETE_CACHE_TTL": "3600",
     "PARTIAL_CACHE_TTL": "300",
   },

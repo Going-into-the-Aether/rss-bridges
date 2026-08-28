@@ -1,4 +1,5 @@
 import { buildTidingsFeed } from "./adapters/tidings";
+import { buildChristadelphianFeed } from "./adapters/the-christadelphian";
 import { renderRss } from "./rss";
 
 export interface Env {
@@ -6,6 +7,9 @@ export interface Env {
   TIDINGS_BOOTSTRAP_AFTER?: string;
   TIDINGS_ROLLING_LIMIT?: string;
   TIDINGS_PAGE_FALLBACK_LIMIT?: string;
+  CHRISTADELPHIAN_MODE?: "bootstrap" | "rolling";
+  CHRISTADELPHIAN_BOOTSTRAP_AFTER?: string;
+  CHRISTADELPHIAN_ROLLING_LIMIT?: string;
   COMPLETE_CACHE_TTL?: string;
   PARTIAL_CACHE_TTL?: string;
 }
@@ -38,6 +42,14 @@ export function tidingsOptions(env: Env) {
   };
 }
 
+export function christadelphianOptions(env: Env) {
+  return {
+    mode: env.CHRISTADELPHIAN_MODE === "rolling" ? ("rolling" as const) : ("bootstrap" as const),
+    bootstrapAfter: env.CHRISTADELPHIAN_BOOTSTRAP_AFTER ?? "2024-01-01T00:00:00Z",
+    rollingLimit: integerSetting(env.CHRISTADELPHIAN_ROLLING_LIMIT, 200),
+  };
+}
+
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body, null, 2), {
     status,
@@ -45,7 +57,7 @@ function jsonResponse(body: unknown, status = 200): Response {
   });
 }
 
-async function generateFeed(request: Request, env: Env): Promise<Response> {
+async function generateTidingsFeed(request: Request, env: Env): Promise<Response> {
   const result = await buildTidingsFeed(tidingsOptions(env));
   const ttl = result.diagnostic.partial
     ? integerSetting(env.PARTIAL_CACHE_TTL, 300)
@@ -63,6 +75,34 @@ async function generateFeed(request: Request, env: Env): Promise<Response> {
     new Date(result.diagnostic.generatedAt),
   );
 
+  return new Response(xml, {
+    headers: {
+      "Cache-Control": `public, max-age=${ttl}`,
+      "Content-Type": "application/rss+xml; charset=UTF-8",
+      "X-RSS-Bridge-Items": String(result.items.length),
+      "X-RSS-Bridge-Partial": String(result.diagnostic.partial),
+    },
+  });
+}
+
+async function generateChristadelphianRss(request: Request, env: Env): Promise<Response> {
+  const result = await buildChristadelphianFeed(christadelphianOptions(env));
+  const ttl = result.diagnostic.partial
+    ? integerSetting(env.PARTIAL_CACHE_TTL, 300)
+    : integerSetting(env.COMPLETE_CACHE_TTL, 3600);
+  const feedUrl = new URL("/the-christadelphian", request.url).toString();
+  const xml = renderRss(
+    {
+      title: "The Christadelphian Office - Blog",
+      homeUrl: "https://thechristadelphian.com/category/blog/",
+      feedUrl,
+      description:
+        "Full articles from The Christadelphian and Faith Alive blogs, linked to the original publisher.",
+      language: "en-gb",
+    },
+    result.items,
+    new Date(result.diagnostic.generatedAt),
+  );
   return new Response(xml, {
     headers: {
       "Cache-Control": `public, max-age=${ttl}`,
@@ -98,11 +138,27 @@ export async function handleRequest(
     }
   }
 
-  if (url.pathname !== "/tidings" && url.pathname !== "/tidings/feed") {
+  if (url.pathname === "/the-christadelphian/status") {
+    try {
+      const result = await buildChristadelphianFeed(christadelphianOptions(env));
+      return jsonResponse({ ...result.diagnostic, cacheStatus: "bypass" });
+    } catch (error) {
+      return jsonResponse(
+        { ok: false, error: error instanceof Error ? error.message : String(error) },
+        502,
+      );
+    }
+  }
+
+  const isTidings = url.pathname === "/tidings" || url.pathname === "/tidings/feed";
+  const isChristadelphian =
+    url.pathname === "/the-christadelphian" || url.pathname === "/the-christadelphian/feed";
+  if (!isTidings && !isChristadelphian) {
     return jsonResponse({ error: "Not found" }, 404);
   }
 
-  const cacheKey = new Request(new URL("/tidings", url).toString(), { method: "GET" });
+  const canonicalPath = isTidings ? "/tidings" : "/the-christadelphian";
+  const cacheKey = new Request(new URL(canonicalPath, url).toString(), { method: "GET" });
   const cached = await cache.match(cacheKey);
   if (cached) {
     const response = new Response(cached.body, cached);
@@ -111,7 +167,9 @@ export async function handleRequest(
   }
 
   try {
-    const response = await generateFeed(request, env);
+    const response = isTidings
+      ? await generateTidingsFeed(request, env)
+      : await generateChristadelphianRss(request, env);
     response.headers.set("X-RSS-Bridge-Cache", "MISS");
     ctx.waitUntil(cache.put(cacheKey, response.clone()));
     return request.method === "HEAD" ? new Response(null, response) : response;

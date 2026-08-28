@@ -12,7 +12,7 @@ export interface ReaderDocument {
   image_url?: string;
   location: ReaderLocation;
   category: "article";
-  saved_using: "rss-bridges-tidings-bootstrap";
+  saved_using: string;
   tags: string[];
 }
 
@@ -28,15 +28,29 @@ export interface ReaderImportResult {
   failed: number;
 }
 
-export function assertCompleteFeed(feed: FeedResult): void {
+export interface ReaderDocumentOptions {
+  savedUsing: string;
+  tags: string[];
+}
+
+export interface ReaderImportDocumentOptions {
+  savedUsing: string;
+  tags: (item: FeedItem) => string[];
+}
+
+export function assertCompleteFeed(feed: FeedResult, sourceName = "Tidings"): void {
   if (!feed.diagnostic.ok || feed.diagnostic.partial) {
-    throw new Error("Refusing partial Tidings import: every upstream source must complete");
+    throw new Error(`Refusing partial ${sourceName} import: every upstream source must complete`);
   }
 }
 
 export function toReaderDocument(
   item: FeedItem,
   location: ReaderLocation = "later",
+  options: ReaderDocumentOptions = {
+    savedUsing: "rss-bridges-tidings-bootstrap",
+    tags: ["tidings", "historical-import"],
+  },
 ): ReaderDocument {
   return {
     url: item.url,
@@ -48,8 +62,8 @@ export function toReaderDocument(
     image_url: item.imageUrl,
     location,
     category: "article",
-    saved_using: "rss-bridges-tidings-bootstrap",
-    tags: ["tidings", "historical-import"],
+    saved_using: options.savedUsing,
+    tags: options.tags,
   };
 }
 
@@ -82,6 +96,7 @@ export async function importReaderBacklog(
     location?: ReaderLocation;
     save: (document: ReaderDocument) => Promise<ReaderSaveResult>;
     wait?: (milliseconds: number) => Promise<void>;
+    documentOptions?: ReaderImportDocumentOptions;
   },
 ): Promise<ReaderImportResult> {
   const result: ReaderImportResult = {
@@ -96,7 +111,13 @@ export async function importReaderBacklog(
     options.wait ?? ((milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)));
   for (const [index, item] of items.entries()) {
     try {
-      const saved = await options.save(toReaderDocument(item, options.location));
+      const documentOptions = options.documentOptions
+        ? {
+            savedUsing: options.documentOptions.savedUsing,
+            tags: options.documentOptions.tags(item),
+          }
+        : undefined;
+      const saved = await options.save(toReaderDocument(item, options.location, documentOptions));
       if (saved.status === 201) result.created += 1;
       else result.existing += 1;
     } catch (error) {
