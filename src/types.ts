@@ -19,6 +19,8 @@ export interface SourceDiagnostic {
   pagesFetched: number;
   recordsFetched: number;
   error?: string;
+  fallback?: boolean;
+  snapshotGeneratedAt?: string;
 }
 
 export interface FeedDiagnostic {

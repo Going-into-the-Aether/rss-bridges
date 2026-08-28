@@ -1,6 +1,11 @@
 # Local agent and AetherOS context
 .claude/
 .github/
+!.github/
+.github/*
+!.github/workflows/
+.github/workflows/*
+!.github/workflows/update-christadelphian-snapshot.yml
 .husky/
 CLAUDE.md
 CODEX.md
