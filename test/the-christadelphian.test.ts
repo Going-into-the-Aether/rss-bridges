@@ -130,4 +130,29 @@ describe("theChristadelphian.com adapter", () => {
     expect(result.diagnostic.partial).toBe(true);
     expect(result.diagnostic.sources.posts.recordsFetched).toBe(1);
   });
+
+  it("falls back when Worker egress receives HTML instead of WordPress JSON", async () => {
+    const fetcher = vi.fn(async (input: RequestInfo | URL) => {
+      const url = new URL(String(input));
+      if (url.pathname.startsWith("/wp-json/")) {
+        return new Response("<html><head><title>Intercepted</title></head></html>", {
+          status: 200,
+          headers: { "Content-Type": "text/html; charset=UTF-8" },
+        });
+      }
+      expect(url.searchParams.get("rest_route")).toBe("/wp/v2/posts");
+      return jsonPage([post()]);
+    });
+
+    const result = await buildChristadelphianFeed({
+      mode: "bootstrap",
+      bootstrapAfter: "2024-01-01T00:00:00Z",
+      rollingLimit: 200,
+      fetcher: fetcher as typeof fetch,
+    });
+
+    expect(result.items).toHaveLength(1);
+    expect(fetcher).toHaveBeenCalledTimes(2);
+    expect(result.diagnostic.sources.posts.endpoint).toContain("rest_route");
+  });
 });
