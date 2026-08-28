@@ -36,7 +36,7 @@ export function assertCompleteFeed(feed: FeedResult): void {
 
 export function toReaderDocument(
   item: FeedItem,
-  location: ReaderLocation = "archive",
+  location: ReaderLocation = "later",
 ): ReaderDocument {
   return {
     url: item.url,
