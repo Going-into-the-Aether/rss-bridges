@@ -10,7 +10,6 @@ Provide stable, metadata-rich RSS endpoints through one reusable Cloudflare Work
 - Cloudflare Workers and Wrangler
 - Vitest
 - ESLint and Prettier
-- Husky and lint-staged
 
 ## Key Rules
 
@@ -20,6 +19,7 @@ Provide stable, metadata-rich RSS endpoints through one reusable Cloudflare Work
 - Do not emit a source CMS account as an article author.
 - Do not remove the bootstrap mode until Chris confirms the historical Reader import.
 - Never push directly to `main`; use a pull request.
+- Keep local harness configuration, editor state, and operator notes out of the public repository.
 
 ## Entry Points
 
