@@ -4,8 +4,11 @@
 
 ### 2026-08-27
 
-- Added sanitized full article HTML to `content:encoded` while retaining short feed descriptions.
-- Added a dry-run-first, URL-idempotent Readwise Reader historical import command with full metadata and rate limiting.
+- Deployed the Tidings adapter to `feeds.atwood.fyi` with 283 bootstrap items and zero author fallbacks.
+- Added sanitized full article HTML to both RSS item `description` and `content:encoded` for Reader compatibility.
+- Added a dry-run-first, URL-idempotent Readwise Reader historical importer with full metadata, rate limiting, and Later as its default destination.
+- Reconciled the historical import to all 283 canonical URLs and documented Reader's stale-pagination limitation.
+- Removed local Claude, GitHub/AetherOS template, and Husky-hook configuration from public tracking; retained portable formatting and repository configuration.
 
 ### 2026-08-26
 

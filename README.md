@@ -1,31 +1,46 @@
 # RSS Bridges
 
-**Status:** Active | **Domain:** Content / Infrastructure
+Reusable Cloudflare Workers that provide standards-compliant RSS feeds for sites whose native feeds are incomplete or unreliable.
 
-Reusable Cloudflare RSS bridges for sites whose native feeds do not expose current content or reliable metadata. Tidings.org is the first source adapter.
+The first adapter serves Tidings.org with canonical URLs, reliable displayed bylines, publication dates, images, excerpts, and sanitized full article bodies. It is designed for RSS readers such as Readwise Reader that may consume either RSS `description` or `content:encoded`.
 
-## Agent Entry Point
+## Live service
 
-- Local manifest: `_rss-bridges-MANIFEST.md`
-- Agent guide: `AGENT.md`
-- Tracking: [rss-bridges #1](https://github.com/Going-into-the-Aether/rss-bridges/issues/1)
+| Route | Purpose |
+| --- | --- |
+| <https://feeds.atwood.fyi/tidings> | Tidings.org RSS 2.0 feed |
+| <https://feeds.atwood.fyi/tidings/status> | Source, extraction, partial-feed, and author-fallback diagnostics |
 
-## Routes
+Production currently runs in bootstrap mode and includes articles published on or after January 1, 2025. The configured steady-state mode retains the newest 200 items after bootstrap validation is complete.
 
-| Route                                     | Purpose                                |
-| ----------------------------------------- | -------------------------------------- |
-| `https://feeds.atwood.fyi/tidings`        | RSS 2.0 feed for Tidings.org           |
-| `https://feeds.atwood.fyi/tidings/status` | Live source and extraction diagnostics |
+## How it works
 
-The initial deployment runs in bootstrap mode and includes content published from January 1, 2025 onward. After Readwise Reader confirms the historical import, the same URL will switch to the newest 200 items.
+- `src/adapters/tidings.ts` retrieves Tidings WordPress content and extracts source-specific metadata.
+- `src/rss.ts` serializes the shared feed model as RSS 2.0.
+- `src/index.ts` provides Worker routing, diagnostics, and explicit edge caching.
+- `src/data/tidings-author-overrides.json` preserves reviewed historical bylines when source markup is insufficient.
+
+The Worker rejects incomplete historical imports, publishes partial-source diagnostics, and uses a shorter cache lifetime for partial responses.
+
+## RSS and Reader behavior
+
+- Canonical article URLs are stable RSS GUIDs.
+- Displayed Tidings bylines are emitted as one or more `dc:creator` elements.
+- The WordPress service account `fm_dev` is never used as an article author.
+- `The Christadelphian Tidings` is used only when no defensible displayed byline is available.
+- Sanitized full article HTML is emitted in both item `description` and `content:encoded`. This duplication is intentional: Reader RSS consumes `description`, while other clients commonly prefer `content:encoded`.
+- Short excerpts remain available to the direct Reader backlog importer as document summaries.
+
+The one-time historical importer saves documents to Reader's **Later** location. Reader's list API can return a stale paginated snapshot after bulk moves, so reconciliation must compare canonical URLs and use exact document reads for any apparent gap. That hardening is tracked in [issue #11](https://github.com/Going-into-the-Aether/rss-bridges/issues/11).
 
 ## Development
 
 ```bash
-npm install
+npm ci
 npm test
 npm run type-check
 npm run lint
+npm run format:check
 npm run dev
 ```
 
@@ -41,14 +56,14 @@ Preview the one-time Reader backlog import. Dry-run mode fetches and counts elig
 npm run import:tidings-reader
 ```
 
-After reviewing the count, run the idempotent import through the supervised Readwise token profile:
+After reviewing the count, inject `READWISE_TOKEN` at runtime and apply the import:
 
 ```bash
-op run --env-file=~/Developer/UAH/vault/env/readwise-assistant.env.op -- \
+READWISE_TOKEN='<runtime-secret>' \
   npm run import:tidings-reader -- --apply --location=later
 ```
 
-Reader deduplicates saves by canonical URL. A repeated run reports existing documents separately from newly created documents. The importer defaults historical documents to Later and stays below Reader's 50-save-per-minute limit.
+Do not store the token in the repository or a committed environment file. Reader deduplicates saves by canonical URL. A repeated run reports existing documents separately from newly created documents. The importer defaults to Later and stays below Reader's 50-save-per-minute limit.
 
 ## Deployment
 
@@ -59,9 +74,20 @@ npm run deploy
 Wrangler owns the `feeds.atwood.fyi` custom domain. No application secrets are required.
 The committed author index is used by default; synchronous page-level author fallback requests are disabled in production.
 
-## Metadata policy
+Before deploying, run:
 
-- Use the displayed Tidings byline, including multiple authors.
-- Never publish the WordPress service account `fm_dev` as an article author.
-- Fall back to `The Christadelphian Tidings` only when no defensible byline can be extracted.
-- Emit sanitized full article HTML in both item `description` and `content:encoded`; Reader RSS consumes `description`, while other clients commonly prefer `content:encoded`.
+```bash
+npm test
+npm run type-check
+npm run lint
+npm run format:check
+npx wrangler deploy --dry-run
+```
+
+## Repository hygiene
+
+Local agent configuration, GitHub/AetherOS templates, Husky hooks, editor state, Wrangler state, credentials, and operator notes are intentionally ignored. Portable project configuration such as `.gitattributes`, `.gitignore`, ESLint, Prettier, TypeScript, Vitest, and Wrangler configuration remains versioned for reproducible development.
+
+## Security
+
+See [SECURITY.md](SECURITY.md) for reporting vulnerabilities. Never commit API tokens, `.dev.vars`, `.env` files, or generated local-agent context.

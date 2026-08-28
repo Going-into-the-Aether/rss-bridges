@@ -1,15 +1,29 @@
-# AI/AetherOS context (generated — do not commit)
+# Local agent and AetherOS context
+.claude/
+.github/
+.husky/
 CLAUDE.md
 CODEX.md
 GEMINI.md
+KIRO.md
 _*-MANIFEST.md
+*-MANIFEST.md
 PLAN.md
+REPOSITORY_NOTE.md
+
+# Local credentials and Cloudflare state
 .env
+.env.*
+!.env.example
+.dev.vars
+.dev.vars.*
+.wrangler/
+
+# Editor, OS, and generated output
+.idea/
+.vscode/
 *.log
 .DS_Store
 coverage/
 dist/
 node_modules/
-
-KIRO.md
-*-MANIFEST.md
