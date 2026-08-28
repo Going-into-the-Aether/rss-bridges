@@ -14,6 +14,7 @@
     "import:tidings-reader": "tsx scripts/import-tidings-reader.ts",
     "import:christadelphian-reader": "tsx scripts/import-christadelphian-reader.ts",
     "lint": "eslint .",
+    "snapshot:christadelphian": "tsx scripts/snapshot-christadelphian.ts",
     "sync:tidings-authors": "tsx scripts/sync-tidings-authors.ts",
     "test": "vitest run",
     "test:watch": "vitest",

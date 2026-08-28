@@ -155,4 +155,36 @@ describe("theChristadelphian.com adapter", () => {
     expect(fetcher).toHaveBeenCalledTimes(2);
     expect(result.diagnostic.sources.posts.endpoint).toContain("rest_route");
   });
+
+  it("uses the approved data-branch snapshot when every live endpoint is intercepted", async () => {
+    const fetcher = vi.fn(async (input: RequestInfo | URL) => {
+      const url = new URL(String(input));
+      if (url.hostname === "raw.githubusercontent.com") {
+        return new Response(
+          JSON.stringify({ fetchedAt: "2026-08-28T20:00:00Z", posts: [post()] }),
+          { headers: { "Content-Type": "text/plain; charset=utf-8" } },
+        );
+      }
+      return new Response("<html>Intercepted</html>", {
+        status: 200,
+        headers: { "Content-Type": "text/html" },
+      });
+    });
+
+    const result = await buildChristadelphianFeed({
+      mode: "bootstrap",
+      bootstrapAfter: "2024-01-01T00:00:00Z",
+      rollingLimit: 200,
+      fetcher: fetcher as typeof fetch,
+    });
+
+    expect(result.items).toHaveLength(1);
+    expect(fetcher).toHaveBeenCalledTimes(4);
+    expect(result.diagnostic.sources.posts).toMatchObject({
+      ok: true,
+      fallback: true,
+      snapshotGeneratedAt: "2026-08-28T20:00:00Z",
+    });
+    expect(result.diagnostic.sources.posts.endpoint).toContain("/data/");
+  });
 });
