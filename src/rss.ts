@@ -26,7 +26,7 @@ function itemXml(item: FeedItem): string {
       <guid isPermaLink="true">${xmlEscape(item.url)}</guid>
       <pubDate>${new Date(item.publishedAt).toUTCString()}</pubDate>
 ${authors}
-      <description>${cdata(item.description)}</description>
+      <description>${cdata(item.contentHtml)}</description>
       <content:encoded>${cdata(item.contentHtml)}</content:encoded>${image}
 ${categories}
     </item>`;

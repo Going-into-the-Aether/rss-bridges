@@ -42,6 +42,10 @@ describe("Reader historical import", () => {
     });
   });
 
+  it("defaults historical imports to Later", () => {
+    expect(toReaderDocument(item).location).toBe("later");
+  });
+
   it("does not call Reader during a dry run", async () => {
     const save = vi.fn();
     const result = await importReaderBacklog([item], { apply: false, save });

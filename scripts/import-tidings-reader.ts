@@ -8,7 +8,7 @@ import {
 
 const apply = process.argv.includes("--apply");
 const locationArg = process.argv.find((argument) => argument.startsWith("--location="));
-const location = (locationArg?.split("=")[1] ?? "archive") as ReaderLocation;
+const location = (locationArg?.split("=")[1] ?? "later") as ReaderLocation;
 if (!["new", "later", "archive", "feed"].includes(location)) {
   throw new Error(`Invalid Reader location: ${location}`);
 }

@@ -45,10 +45,10 @@ After reviewing the count, run the idempotent import through the supervised Read
 
 ```bash
 op run --env-file=~/Developer/UAH/vault/env/readwise-assistant.env.op -- \
-  npm run import:tidings-reader -- --apply --location=archive
+  npm run import:tidings-reader -- --apply --location=later
 ```
 
-Reader deduplicates saves by canonical URL. A repeated run reports existing documents separately from newly created documents. The importer defaults historical documents to Archive and stays below Reader's 50-save-per-minute limit.
+Reader deduplicates saves by canonical URL. A repeated run reports existing documents separately from newly created documents. The importer defaults historical documents to Later and stays below Reader's 50-save-per-minute limit.
 
 ## Deployment
 
@@ -64,4 +64,4 @@ The committed author index is used by default; synchronous page-level author fal
 - Use the displayed Tidings byline, including multiple authors.
 - Never publish the WordPress service account `fm_dev` as an article author.
 - Fall back to `The Christadelphian Tidings` only when no defensible byline can be extracted.
-- Keep a clean excerpt in `description` and sanitized full article HTML in `content:encoded`.
+- Emit sanitized full article HTML in both item `description` and `content:encoded`; Reader RSS consumes `description`, while other clients commonly prefer `content:encoded`.
