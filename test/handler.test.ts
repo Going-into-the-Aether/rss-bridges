@@ -104,7 +104,12 @@ describe("HTTP routing", () => {
                 },
               },
             ]),
-            { headers: { "X-WP-TotalPages": "1" } },
+            {
+              headers: {
+                "Content-Type": "application/json; charset=UTF-8",
+                "X-WP-TotalPages": "1",
+              },
+            },
           ),
       ),
     );

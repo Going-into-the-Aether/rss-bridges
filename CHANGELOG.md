@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### 2026-08-28
+
+- Added WordPress REST endpoint failover when Cloudflare Worker egress receives an HTML interception response.
+
 ### 2026-08-27
 
 - Added a combined full-content theChristadelphian.com blog adapter with The Christadelphian/Faith Alive source categories, complete public backlog bootstrap, featured images, safe author fallback diagnostics, and a Reader Later importer.
