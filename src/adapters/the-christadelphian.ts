@@ -3,6 +3,11 @@ import type { FeedItem, FeedResult, SourceDiagnostic } from "../types";
 
 const BASE_URL = "https://thechristadelphian.com";
 const POSTS_ENDPOINT = `${BASE_URL}/wp-json/wp/v2/posts`;
+const POSTS_ENDPOINTS = [
+  { base: POSTS_ENDPOINT },
+  { base: `${BASE_URL}/`, restRoute: "/wp/v2/posts" },
+  { base: "https://www.thechristadelphian.com/wp-json/wp/v2/posts" },
+] as const;
 const FALLBACK_AUTHOR = "The Christadelphian Office";
 const CATEGORY_LABELS: Record<number, string> = {
   1300: "The Christadelphian",
@@ -156,6 +161,8 @@ async function fetchPosts(options: ChristadelphianOptions): Promise<SourceFetch>
   const records: ChristadelphianPost[] = [];
   let totalPages = 1;
   let pagesFetched = 0;
+  let activeEndpoint = 0;
+  let diagnosticEndpoint = POSTS_ENDPOINT;
   const pageCap = Math.min(
     options.maxPages ?? 50,
     options.mode === "rolling"
@@ -178,26 +185,54 @@ async function fetchPosts(options: ChristadelphianOptions): Promise<SourceFetch>
           },
         };
       }
-      const url = new URL(POSTS_ENDPOINT);
-      url.searchParams.set("categories", "1300,1301");
-      url.searchParams.set("per_page", "100");
-      url.searchParams.set("page", String(page));
-      url.searchParams.set("orderby", "date");
-      url.searchParams.set("order", "desc");
-      url.searchParams.set("_embed", "wp:featuredmedia");
-      url.searchParams.set(
-        "_fields",
-        "id,date_gmt,modified_gmt,link,title,excerpt,content,featured_media,categories,_links,_embedded",
-      );
-      if (options.mode === "bootstrap") {
-        url.searchParams.set("after", exclusiveAfter(options.bootstrapAfter));
-      }
+      let response: Response | undefined;
+      let pageRecords: ChristadelphianPost[] | undefined;
+      const failures: string[] = [];
+      for (let offset = 0; offset < POSTS_ENDPOINTS.length; offset += 1) {
+        const endpointIndex = (activeEndpoint + offset) % POSTS_ENDPOINTS.length;
+        const endpoint = POSTS_ENDPOINTS[endpointIndex];
+        const url = new URL(endpoint.base);
+        if ("restRoute" in endpoint) url.searchParams.set("rest_route", endpoint.restRoute);
+        url.searchParams.set("categories", "1300,1301");
+        url.searchParams.set("per_page", "100");
+        url.searchParams.set("page", String(page));
+        url.searchParams.set("orderby", "date");
+        url.searchParams.set("order", "desc");
+        url.searchParams.set("_embed", "wp:featuredmedia");
+        url.searchParams.set(
+          "_fields",
+          "id,date_gmt,modified_gmt,link,title,excerpt,content,featured_media,categories,_links,_embedded",
+        );
+        if (options.mode === "bootstrap") {
+          url.searchParams.set("after", exclusiveAfter(options.bootstrapAfter));
+        }
 
-      const response = await fetcher(url, {
-        headers: { "User-Agent": "rss-bridges/1.0 (+https://feeds.atwood.fyi)" },
-      });
-      if (!response.ok) throw new Error(`HTTP ${response.status} from posts page ${page}`);
-      records.push(...((await response.json()) as ChristadelphianPost[]));
+        try {
+          const candidate = await fetcher(url, {
+            headers: { "User-Agent": "rss-bridges/1.0 (+https://feeds.atwood.fyi)" },
+          });
+          const contentType = candidate.headers.get("Content-Type") ?? "";
+          if (!candidate.ok) throw new Error(`HTTP ${candidate.status}`);
+          if (!/\bapplication\/json\b/i.test(contentType)) {
+            throw new Error(`unexpected content type ${contentType || "missing"}`);
+          }
+          const payload: unknown = await candidate.json();
+          if (!Array.isArray(payload)) throw new Error("JSON response is not an array");
+          response = candidate;
+          pageRecords = payload as ChristadelphianPost[];
+          activeEndpoint = endpointIndex;
+          diagnosticEndpoint = url.toString();
+          break;
+        } catch (error) {
+          failures.push(
+            `${url.origin}${url.pathname}: ${error instanceof Error ? error.message : String(error)}`,
+          );
+        }
+      }
+      if (!response || !pageRecords) {
+        throw new Error(`posts page ${page} failed across endpoints: ${failures.join("; ")}`);
+      }
+      records.push(...pageRecords);
       pagesFetched += 1;
       totalPages = Number.parseInt(response.headers.get("X-WP-TotalPages") ?? "1", 10);
       if (!Number.isFinite(totalPages) || totalPages < 1) totalPages = 1;
@@ -206,7 +241,7 @@ async function fetchPosts(options: ChristadelphianOptions): Promise<SourceFetch>
       records,
       diagnostic: {
         ok: true,
-        endpoint: POSTS_ENDPOINT,
+        endpoint: diagnosticEndpoint,
         pagesFetched,
         recordsFetched: records.length,
       },
@@ -216,7 +251,7 @@ async function fetchPosts(options: ChristadelphianOptions): Promise<SourceFetch>
       records,
       diagnostic: {
         ok: false,
-        endpoint: POSTS_ENDPOINT,
+        endpoint: diagnosticEndpoint,
         pagesFetched,
         recordsFetched: records.length,
         error: error instanceof Error ? error.message : String(error),
