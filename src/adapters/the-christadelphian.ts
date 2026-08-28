@@ -61,17 +61,18 @@ export function extractChristadelphianAuthors(html: string): string[] {
   const candidates = [
     ...[
       ...html.matchAll(/<p\b[^>]*class=["'][^"']*\bAuthor\b[^"']*["'][^>]*>([\s\S]*?)<\/p>/gi),
+    ].map((match) => stripHtml(match[1]).replace(/^By\s+/i, "")),
+    ...[
+      ...html.matchAll(
+        /<p\b[^>]*>\s*(?:<em\b[^>]*>\s*)?By\s*<(?:strong|b)\b[^>]*>([\s\S]*?)<\/(?:strong|b)>\s*(?:<\/em>\s*)?<\/p>/gi,
+      ),
     ].map((match) => stripHtml(match[1])),
-    ...[...html.matchAll(/\bBy\s*<(?:strong|b)\b[^>]*>([\s\S]*?)<\/(?:strong|b)>/gi)].map((match) =>
-      stripHtml(match[1]),
-    ),
   ];
-  return [...new Set(candidates.map((candidate) => candidate.trim()).filter(plausibleAuthor))];
-}
-
-export function stripMagazineFooter(html: string): string {
-  const boundary = html.search(/<h[1-6]\b[^>]*>\s*Our Magazines\s*<\/h[1-6]>/i);
-  return (boundary >= 0 ? html.slice(0, boundary) : html).trim();
+  const unique = new Map<string, string>();
+  for (const candidate of candidates.map((value) => value.trim()).filter(plausibleAuthor)) {
+    unique.set(candidate.toLocaleLowerCase("en-GB"), candidate);
+  }
+  return [...unique.values()];
 }
 
 function normalizeCanonicalUrl(value: string): string {
@@ -122,7 +123,7 @@ function imageUrl(record: ChristadelphianPost, contentHtml: string): string | un
 }
 
 function mapPost(record: ChristadelphianPost): FeedItem {
-  const rawContent = stripMagazineFooter(record.content?.rendered ?? "");
+  const rawContent = (record.content?.rendered ?? "").trim();
   const contentHtml = sanitizeHtmlContent(rawContent);
   if (!contentHtml) throw new Error(`Post ${record.id} has no usable article body`);
   const explicitAuthors = extractChristadelphianAuthors(rawContent);

@@ -2,7 +2,6 @@ import { describe, expect, it, vi } from "vitest";
 import {
   buildChristadelphianFeed,
   extractChristadelphianAuthors,
-  stripMagazineFooter,
   type ChristadelphianPost,
 } from "../src/adapters/the-christadelphian";
 
@@ -51,16 +50,20 @@ describe("theChristadelphian.com adapter", () => {
     expect(extractChristadelphianAuthors("<p>By <strong>Mary Smith</strong></p>")).toEqual([
       "Mary Smith",
     ]);
+    expect(extractChristadelphianAuthors('<p class="Author">By Harry Whittaker</p>')).toEqual([
+      "Harry Whittaker",
+    ]);
+    expect(
+      extractChristadelphianAuthors(
+        '<p class="Author">By <strong>Harry Whittaker</strong></p><p>By <strong>Harry Whittaker</strong></p>',
+      ),
+    ).toEqual(["Harry Whittaker"]);
+    expect(
+      extractChristadelphianAuthors("<p>By <strong>faith</strong> Abraham obeyed.</p>"),
+    ).toEqual([]);
     expect(
       extractChristadelphianAuthors('<p class="Author">The Christadelphian Office</p>'),
     ).toEqual([]);
-  });
-
-  it("strips the reusable magazine footer without losing the article conclusion", () => {
-    const html =
-      "<p>Article conclusion.</p>" +
-      "<h2>Our Magazines</h2><p>Promotional copy.</p><h3>Faith Alive</h3>";
-    expect(stripMagazineFooter(html)).toBe("<p>Article conclusion.</p>");
   });
 
   it("maps both source categories, featured media, full content, and author fallback", async () => {
