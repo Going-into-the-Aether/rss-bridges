@@ -20,7 +20,7 @@ The theChristadelphian.com adapter initially includes its complete public blog c
 ## How it works
 
 - `src/adapters/tidings.ts` retrieves Tidings WordPress content and extracts source-specific metadata.
-- `src/adapters/the-christadelphian.ts` uses the public WordPress posts API, resolves featured media, preserves the two publication categories, and removes the reusable magazine footer if it appears in article content.
+- `src/adapters/the-christadelphian.ts` uses the public WordPress posts API, resolves featured media, preserves the two publication categories, and retains the complete sanitized article body without truncating on editorial headings.
 - `src/rss.ts` serializes the shared feed model as RSS 2.0.
 - `src/index.ts` provides Worker routing, diagnostics, and explicit edge caching.
 - `src/data/tidings-author-overrides.json` preserves reviewed historical bylines when source markup is insufficient.
