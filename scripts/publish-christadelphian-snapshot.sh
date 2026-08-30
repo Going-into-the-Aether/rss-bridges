@@ -5,6 +5,7 @@ repo_root=$(cd "$(dirname "$0")/.." && pwd)
 git_wrapper=${RSS_BRIDGES_GIT_WRAPPER:-}
 timeout_runner="$repo_root/scripts/run-with-timeout.mjs"
 git_timeout_seconds=${RSS_BRIDGES_GIT_TIMEOUT_SECONDS:-120}
+public_data_remote="https://github.com/Going-into-the-Aether/rss-bridges.git"
 
 if [[ -z "$git_wrapper" || ! -x "$git_wrapper" ]]; then
   print -u2 "RSS_BRIDGES_GIT_WRAPPER must name an executable supervised Git wrapper."
@@ -28,6 +29,16 @@ supervised_git() {
     -- "$git_wrapper" "$@"
 }
 
+bounded_git() {
+  local operation=$1
+  shift
+  GIT_TERMINAL_PROMPT=0 GIT_ASKPASS=/usr/bin/false SSH_ASKPASS=/usr/bin/false \
+    node "$timeout_runner" \
+    --label "$operation" \
+    --timeout-seconds "$git_timeout_seconds" \
+    -- git -c credential.helper= "$@"
+}
+
 task_root=$(mktemp -d "${TMPDIR:-/tmp}/rss-bridges-snapshot.XXXXXX")
 snapshot_path="$task_root/the-christadelphian-posts.json"
 data_worktree="$task_root/data"
@@ -44,7 +55,15 @@ trap cleanup EXIT
 cd "$repo_root"
 npm run snapshot:christadelphian -- --output="$snapshot_path"
 
-supervised_git "fetch origin data" fetch origin data
+origin_url=$(git remote get-url origin)
+if [[ "$origin_url" != "$public_data_remote" ]]; then
+  print -u2 "Origin must match the canonical public snapshot remote: $public_data_remote"
+  exit 1
+fi
+bounded_git \
+  "fetch public data branch" \
+  fetch origin \
+  "+refs/heads/data:refs/remotes/origin/data"
 git worktree prune
 if git show-ref --verify --quiet refs/heads/data; then
   git branch --force data refs/remotes/origin/data

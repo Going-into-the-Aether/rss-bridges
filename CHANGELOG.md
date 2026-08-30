@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### 2026-08-30
+
+- Removed the scheduled snapshot job's credential dependency for public data-branch fetches while retaining bounded execution and supervised pushes.
+
 ### 2026-08-29
 
 - Reconcile every accepted Reader save by exact document ID and report retained, rejected, and missing outcomes without trusting stale aggregate pagination.
