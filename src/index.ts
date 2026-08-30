@@ -159,7 +159,7 @@ export async function handleRequest(
 
   if (url.pathname === "/tidings/status") {
     try {
-      return await generateStatusResponse(
+      const response = await generateStatusResponse(
         request,
         env,
         ctx,
@@ -167,6 +167,7 @@ export async function handleRequest(
         "/tidings/status",
         async () => (await buildTidingsFeed(tidingsOptions(env))).diagnostic,
       );
+      return request.method === "HEAD" ? new Response(null, response) : response;
     } catch (error) {
       return jsonResponse(
         { ok: false, error: error instanceof Error ? error.message : String(error) },
@@ -177,7 +178,7 @@ export async function handleRequest(
 
   if (url.pathname === "/the-christadelphian/status") {
     try {
-      return await generateStatusResponse(
+      const response = await generateStatusResponse(
         request,
         env,
         ctx,
@@ -185,6 +186,7 @@ export async function handleRequest(
         "/the-christadelphian/status",
         async () => (await buildChristadelphianFeed(christadelphianOptions(env))).diagnostic,
       );
+      return request.method === "HEAD" ? new Response(null, response) : response;
     } catch (error) {
       return jsonResponse(
         { ok: false, error: error instanceof Error ? error.message : String(error) },

@@ -130,6 +130,31 @@ describe("HTTP routing", () => {
     vi.unstubAllGlobals();
   });
 
+  it.each(["/tidings/status", "/the-christadelphian/status"])(
+    "returns no body for HEAD %s requests",
+    async (path) => {
+      const cache = new MemoryCache();
+      await cache.put(
+        new Request(`https://feeds.atwood.fyi${path}`),
+        new Response(JSON.stringify({ ok: true, partial: false, cacheStatus: "MISS" }), {
+          headers: { "Content-Type": "application/json; charset=UTF-8" },
+        }),
+      );
+
+      const response = await handleRequest(
+        new Request(`https://feeds.atwood.fyi${path}`, { method: "HEAD" }),
+        {},
+        { waitUntil: vi.fn() },
+        cache,
+      );
+
+      expect(response.status).toBe(200);
+      expect(response.body).toBeNull();
+      expect(await response.text()).toBe("");
+      expect(response.headers.get("X-RSS-Bridge-Cache")).toBe("HIT");
+    },
+  );
+
   it("serves the combined Christadelphian route from its own cache key", async () => {
     const cache = new MemoryCache();
     const key = new Request("https://feeds.atwood.fyi/the-christadelphian");
