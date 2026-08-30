@@ -28,6 +28,15 @@ supervised_git() {
     -- "$git_wrapper" "$@"
 }
 
+bounded_git() {
+  local operation=$1
+  shift
+  node "$timeout_runner" \
+    --label "$operation" \
+    --timeout-seconds "$git_timeout_seconds" \
+    -- git "$@"
+}
+
 task_root=$(mktemp -d "${TMPDIR:-/tmp}/rss-bridges-snapshot.XXXXXX")
 snapshot_path="$task_root/the-christadelphian-posts.json"
 data_worktree="$task_root/data"
@@ -44,7 +53,7 @@ trap cleanup EXIT
 cd "$repo_root"
 npm run snapshot:christadelphian -- --output="$snapshot_path"
 
-supervised_git "fetch origin data" fetch origin data
+bounded_git "fetch origin data" fetch origin data
 git worktree prune
 if git show-ref --verify --quiet refs/heads/data; then
   git branch --force data refs/remotes/origin/data

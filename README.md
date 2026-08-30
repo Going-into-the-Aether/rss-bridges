@@ -113,7 +113,9 @@ The publisher blocks Cloudflare Worker and GitHub-hosted runner networks. A macO
 npm run snapshot:christadelphian -- --output=<temporary-path>
 ```
 
-The publisher script validates the minimum catalog size and unique IDs. It updates only the orphan `data` branch and signs its commit. It pushes through a caller-supplied supervised Git wrapper. Replace `__REPO_ROOT__`, `__LOG_DIR__`, and `__GIT_WRAPPER__` in the LaunchAgent template during installation. Install dependencies once with `npm ci`. This repository stores no secret.
+The publisher script validates the minimum catalog size and unique IDs. It fetches the public `data` branch without credentials and within the configured timeout. It updates only that orphan branch and signs its commit.
+
+The script uses the caller-supplied supervised Git wrapper only when changed content requires a push. Replace `__REPO_ROOT__`, `__LOG_DIR__`, and `__GIT_WRAPPER__` in the LaunchAgent template during installation. Install dependencies once with `npm ci`. This repository stores no secret.
 
 ## Security
 
