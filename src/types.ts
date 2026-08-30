@@ -34,6 +34,9 @@ export interface FeedDiagnostic {
   underfilled?: boolean;
   underfillReason?: "sources-exhausted" | "page-cap-reached" | "source-failure";
   authorFallbacks: number;
+  authorFallbackThreshold?: number;
+  authorFallbackExceeded?: boolean;
+  unresolvedAuthorUrls?: string[];
   newest: Pick<FeedItem, "title" | "url" | "publishedAt" | "authors"> | null;
 }
 
