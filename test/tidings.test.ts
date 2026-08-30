@@ -296,6 +296,9 @@ describe("Tidings source aggregation", () => {
     });
 
     expect(fetcher).toHaveBeenCalledTimes(6);
+    expect(
+      fetcher.mock.calls.map(([input]) => new URL(String(input)).searchParams.get("page")),
+    ).toEqual(["1", "1", "2", "2", "3", "3"]);
     expect(result.items).toHaveLength(3);
     expect(result.diagnostic).toMatchObject({
       ok: true,
@@ -304,6 +307,45 @@ describe("Tidings source aggregation", () => {
       targetItems: 3,
       underfilled: false,
     });
+  });
+
+  it("preserves collected records when a later adaptive page fails", async () => {
+    const fetcher = vi.fn(async (input: RequestInfo | URL) => {
+      const url = new URL(String(input));
+      const page = Number(url.searchParams.get("page"));
+      const type = url.pathname.endsWith("/magazine") ? "magazine" : "articles";
+      if (type === "magazine" && page === 3) {
+        return new Response("unavailable", { status: 503 });
+      }
+      return jsonPage(
+        [
+          record({
+            id: page,
+            type,
+            link: `https://tidings.org/shared/item-${page}/`,
+          }),
+        ],
+        3,
+      );
+    });
+
+    const result = await buildTidingsFeed({
+      mode: "rolling",
+      bootstrapAfter: "2025-01-01T00:00:00Z",
+      rollingLimit: 3,
+      pageFallbackLimit: 0,
+      fetcher: fetcher as typeof fetch,
+    });
+
+    expect(result.items).toHaveLength(3);
+    expect(result.diagnostic.partial).toBe(true);
+    expect(result.diagnostic.underfilled).toBe(false);
+    expect(result.diagnostic.sources.magazine).toMatchObject({
+      ok: false,
+      pagesFetched: 2,
+      recordsFetched: 2,
+    });
+    expect(result.diagnostic.sources.magazine.error).toContain("page 3");
   });
 
   it("reports source exhaustion when overlap leaves the rolling feed underfilled", async () => {
