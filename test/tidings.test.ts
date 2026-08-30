@@ -100,6 +100,14 @@ describe("Tidings author extraction", () => {
       ),
     ).toEqual(["James DiLiberto"]);
   });
+
+  it("extracts an author from an unusually nested signature", () => {
+    expect(
+      extractAuthors(
+        "<p><span><strong><em>Future Author,</em></strong><br /><span>Springfield Ecclesia, CA</span></span></p>",
+      ),
+    ).toEqual(["Future Author"]);
+  });
 });
 
 describe("Tidings source aggregation", () => {
@@ -431,6 +439,68 @@ describe("Tidings source aggregation", () => {
     });
     expect(result.items[0].authors).toEqual(["Belinda Stone"]);
     expect(result.diagnostic.authorFallbacks).toBe(0);
+  });
+
+  it("reports unresolved canonical author URLs and crosses the default threshold", async () => {
+    const unsigned = record({
+      link: "https://TIDINGS.org/articles/future-layout?utm_source=test",
+      content: {
+        rendered: "<p>Article body.</p><p><em>Future Author,<br />Remote location, CA</em></p>",
+      },
+    });
+    const fetcher = vi.fn(async (input: RequestInfo | URL) => {
+      const url = new URL(String(input));
+      return url.pathname.endsWith("/magazine") ? jsonPage([]) : jsonPage([unsigned]);
+    });
+
+    const result = await buildTidingsFeed({
+      mode: "bootstrap",
+      bootstrapAfter: "2025-01-01T00:00:00Z",
+      rollingLimit: 200,
+      pageFallbackLimit: 0,
+      authorOverrides: {},
+      fetcher: fetcher as typeof fetch,
+    });
+
+    expect(result.items[0]).toMatchObject({
+      authors: ["The Christadelphian Tidings"],
+      usedFallbackAuthor: true,
+      url: "https://tidings.org/articles/future-layout/",
+    });
+    expect(result.diagnostic).toMatchObject({
+      ok: false,
+      partial: true,
+      authorFallbacks: 1,
+      authorFallbackThreshold: 0,
+      authorFallbackExceeded: true,
+      unresolvedAuthorUrls: ["https://tidings.org/articles/future-layout/"],
+    });
+  });
+
+  it("keeps diagnostics healthy within an explicitly allowed fallback threshold", async () => {
+    const unsigned = record({ content: { rendered: "<p>Article without a signature.</p>" } });
+    const fetcher = vi.fn(async (input: RequestInfo | URL) => {
+      const url = new URL(String(input));
+      return url.pathname.endsWith("/magazine") ? jsonPage([]) : jsonPage([unsigned]);
+    });
+
+    const result = await buildTidingsFeed({
+      mode: "bootstrap",
+      bootstrapAfter: "2025-01-01T00:00:00Z",
+      rollingLimit: 200,
+      pageFallbackLimit: 0,
+      authorFallbackThreshold: 1,
+      authorOverrides: {},
+      fetcher: fetcher as typeof fetch,
+    });
+
+    expect(result.diagnostic).toMatchObject({
+      ok: true,
+      partial: false,
+      authorFallbacks: 1,
+      authorFallbackThreshold: 1,
+      authorFallbackExceeded: false,
+    });
   });
 
   it("normalizes record URLs before author override lookup", async () => {
