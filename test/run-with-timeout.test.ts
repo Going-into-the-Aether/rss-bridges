@@ -2,6 +2,7 @@ import { chmod, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { execFile, spawn } from "node:child_process";
+import { setTimeout as delay } from "node:timers/promises";
 import { promisify } from "node:util";
 import { describe, expect, it } from "vitest";
 
@@ -16,9 +17,13 @@ function killProcessGroup(processGroupId: number): void {
   }
 }
 
-function run(args: string[]): Promise<{ code: number | null; stderr: string }> {
+function run(
+  args: string[],
+  environment: NodeJS.ProcessEnv = process.env,
+): Promise<{ code: number | null; stderr: string }> {
   return new Promise((resolveRun, reject) => {
     const child = spawn(process.execPath, [runner, ...args], {
+      env: environment,
       stdio: ["ignore", "ignore", "pipe"],
     });
     let stderr = "";
@@ -31,24 +36,59 @@ function run(args: string[]): Promise<{ code: number | null; stderr: string }> {
   });
 }
 
+async function readPidWhenReady(path: string): Promise<number> {
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    try {
+      return Number.parseInt((await readFile(path, "utf8")).trim(), 10);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+      await delay(10);
+    }
+  }
+  throw new Error(`PID file was not created: ${path}`);
+}
+
+async function expectProcessGone(pid: number): Promise<void> {
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    try {
+      process.kill(pid, 0);
+      await delay(10);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ESRCH") return;
+      throw error;
+    }
+  }
+  throw new Error(`Process remained after timeout cleanup: ${pid}`);
+}
+
 describe("run-with-timeout", () => {
   it("preserves a successful Git operation's exit status", async () => {
     const directory = await mkdtemp(join(tmpdir(), "rss-bridges-git-test."));
+    const gitEnvironment = {
+      ...process.env,
+      GIT_CONFIG_GLOBAL: "/dev/null",
+      GIT_CONFIG_NOSYSTEM: "1",
+    };
 
     try {
-      await execFileAsync("/usr/bin/git", ["init", "--quiet", directory]);
-      const result = await run([
-        "--label",
-        "test git status",
-        "--timeout-seconds",
-        "2",
-        "--",
-        "/usr/bin/git",
-        "-C",
-        directory,
-        "status",
-        "--short",
-      ]);
+      await execFileAsync("git", ["init", "--quiet", directory], {
+        env: gitEnvironment,
+      });
+      const result = await run(
+        [
+          "--label",
+          "test git status",
+          "--timeout-seconds",
+          "2",
+          "--",
+          "git",
+          "-C",
+          directory,
+          "status",
+          "--short",
+        ],
+        gitEnvironment,
+      );
 
       expect(result).toEqual({ code: 0, stderr: "" });
     } finally {
@@ -91,7 +131,7 @@ describe("run-with-timeout", () => {
       );
       await chmod(hangingCommand, 0o700);
 
-      const result = await run([
+      const resultPromise = run([
         "--label",
         "test fetch",
         "--timeout-seconds",
@@ -99,15 +139,14 @@ describe("run-with-timeout", () => {
         "--",
         hangingCommand,
       ]);
+      processGroupId = await readPidWhenReady(pidFile);
+      const descendantPid = await readPidWhenReady(descendantPidFile);
+      const result = await resultPromise;
 
       expect(result.code).toBe(124);
       expect(result.stderr).toContain("Timed out after 1 second: test fetch");
-
-      const pid = Number.parseInt((await readFile(pidFile, "utf8")).trim(), 10);
-      processGroupId = pid;
-      const descendantPid = Number.parseInt((await readFile(descendantPidFile, "utf8")).trim(), 10);
-      expect(() => process.kill(pid, 0)).toThrow();
-      expect(() => process.kill(descendantPid, 0)).toThrow();
+      await expectProcessGone(processGroupId);
+      await expectProcessGone(descendantPid);
     } finally {
       if (processGroupId) killProcessGroup(processGroupId);
       await rm(directory, { recursive: true, force: true });

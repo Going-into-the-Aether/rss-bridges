@@ -64,6 +64,8 @@ child.once("spawn", () => {
   timeoutTimer = setTimeout(() => {
     timedOut = true;
     signalProcessGroup("SIGTERM");
+    // Keep the grace timer alive after the leader exits. Descendants such as
+    // op may ignore SIGTERM and still need a group-wide SIGKILL.
     forceKillTimer = setTimeout(() => signalProcessGroup("SIGKILL"), 1000);
   }, timeoutSeconds * 1000);
 });
