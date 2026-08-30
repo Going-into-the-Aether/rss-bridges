@@ -6,13 +6,13 @@ describe("RSS rendering", () => {
   it("emits Reader-facing metadata and valid XML escaping", () => {
     const item: FeedItem = {
       id: "magazine:1",
-      title: "Faith & Fellowship",
+      title: "Faith & Fellowship\u0000",
       url: "https://tidings.org/magazine/faith-fellowship/",
       publishedAt: "2026-08-25T13:00:00Z",
       modifiedAt: "2026-08-25T14:00:00Z",
-      authors: ["James Andrews", "Steve Petrou"],
+      authors: ["James Andrews", "Steve Petrou\u0007"],
       description: "A summary with <meaning> & ]]> safely represented.",
-      contentHtml: "<p>The complete article body.</p><p>Second ]]> paragraph.</p>",
+      contentHtml: "<p>The complete article body.\u0007</p><p>Second ]]> paragraph.</p>",
       imageUrl: "https://tidings.org/image.webp?a=1&b=2",
       categories: ["Community & Fellowship"],
       sourceType: "magazine",
@@ -34,6 +34,12 @@ describe("RSS rendering", () => {
     expect(xml).toContain("<dc:creator>James Andrews</dc:creator>");
     expect(xml).toContain("<dc:creator>Steve Petrou</dc:creator>");
     expect(xml).not.toContain("fm_dev");
+    expect(
+      [...xml].some((character) => {
+        const codePoint = character.codePointAt(0)!;
+        return codePoint < 0x20 && codePoint !== 0x09 && codePoint !== 0x0a && codePoint !== 0x0d;
+      }),
+    ).toBe(false);
     expect(xml).toContain('media:thumbnail url="https://tidings.org/image.webp?a=1&amp;b=2"');
     expect(xml).toContain("<category>Community &amp; Fellowship</category>");
     expect(xml).toContain('atom:link href="https://feeds.atwood.fyi/tidings"');

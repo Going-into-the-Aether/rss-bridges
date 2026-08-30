@@ -34,8 +34,24 @@ export function sanitizeHtmlContent(value: string): string {
   }).trim();
 }
 
+export function stripInvalidXmlCharacters(value: string): string {
+  return [...value]
+    .filter((character) => {
+      const codePoint = character.codePointAt(0)!;
+      return (
+        codePoint === 0x09 ||
+        codePoint === 0x0a ||
+        codePoint === 0x0d ||
+        (codePoint >= 0x20 && codePoint <= 0xd7ff) ||
+        (codePoint >= 0xe000 && codePoint <= 0xfffd) ||
+        (codePoint >= 0x10000 && codePoint <= 0x10ffff)
+      );
+    })
+    .join("");
+}
+
 export function xmlEscape(value: string): string {
-  return value
+  return stripInvalidXmlCharacters(value)
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
@@ -44,5 +60,5 @@ export function xmlEscape(value: string): string {
 }
 
 export function cdata(value: string): string {
-  return `<![CDATA[${value.replaceAll("]]>", "]]]]><![CDATA[>")}]]>`;
+  return `<![CDATA[${stripInvalidXmlCharacters(value).replaceAll("]]>", "]]]]><![CDATA[>")}]]>`;
 }
