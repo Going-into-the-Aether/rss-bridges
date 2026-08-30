@@ -6,6 +6,7 @@
 
 - Bounded atlas snapshot Git operations and terminate their complete process groups when 1Password-backed transport hangs.
 - Transitioned the Tidings production feed from its completed January 2025 bootstrap to the newest 200 rolling items.
+- Cached feed diagnostics under canonical status keys to prevent monitoring traffic from amplifying upstream requests.
 
 ### 2026-08-28
 

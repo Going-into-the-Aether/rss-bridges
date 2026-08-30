@@ -1,6 +1,7 @@
 import { buildTidingsFeed } from "./adapters/tidings";
 import { buildChristadelphianFeed } from "./adapters/the-christadelphian";
 import { renderRss } from "./rss";
+import type { FeedDiagnostic } from "./types";
 
 export interface Env {
   TIDINGS_MODE?: "bootstrap" | "rolling";
@@ -55,6 +56,36 @@ function jsonResponse(body: unknown, status = 200): Response {
     status,
     headers: { "Content-Type": "application/json; charset=UTF-8" },
   });
+}
+
+async function generateStatusResponse(
+  request: Request,
+  env: Env,
+  ctx: ExecutionContextLike,
+  cache: CacheLike,
+  canonicalPath: string,
+  buildDiagnostic: () => Promise<FeedDiagnostic>,
+): Promise<Response> {
+  const cacheKey = new Request(new URL(canonicalPath, request.url).toString(), { method: "GET" });
+  const cached = await cache.match(cacheKey);
+  if (cached) {
+    const payload = (await cached.json()) as FeedDiagnostic & { cacheStatus?: string };
+    const response = jsonResponse({ ...payload, cacheStatus: "HIT" }, cached.status);
+    const cacheControl = cached.headers.get("Cache-Control");
+    if (cacheControl) response.headers.set("Cache-Control", cacheControl);
+    response.headers.set("X-RSS-Bridge-Cache", "HIT");
+    return response;
+  }
+
+  const diagnostic = await buildDiagnostic();
+  const ttl = diagnostic.partial
+    ? integerSetting(env.PARTIAL_CACHE_TTL, 300)
+    : integerSetting(env.COMPLETE_CACHE_TTL, 3600);
+  const response = jsonResponse({ ...diagnostic, cacheStatus: "MISS" });
+  response.headers.set("Cache-Control", `public, max-age=${ttl}`);
+  response.headers.set("X-RSS-Bridge-Cache", "MISS");
+  ctx.waitUntil(cache.put(cacheKey, response.clone()));
+  return response;
 }
 
 async function generateTidingsFeed(request: Request, env: Env): Promise<Response> {
@@ -128,8 +159,14 @@ export async function handleRequest(
 
   if (url.pathname === "/tidings/status") {
     try {
-      const result = await buildTidingsFeed(tidingsOptions(env));
-      return jsonResponse({ ...result.diagnostic, cacheStatus: "bypass" });
+      return await generateStatusResponse(
+        request,
+        env,
+        ctx,
+        cache,
+        "/tidings/status",
+        async () => (await buildTidingsFeed(tidingsOptions(env))).diagnostic,
+      );
     } catch (error) {
       return jsonResponse(
         { ok: false, error: error instanceof Error ? error.message : String(error) },
@@ -140,8 +177,14 @@ export async function handleRequest(
 
   if (url.pathname === "/the-christadelphian/status") {
     try {
-      const result = await buildChristadelphianFeed(christadelphianOptions(env));
-      return jsonResponse({ ...result.diagnostic, cacheStatus: "bypass" });
+      return await generateStatusResponse(
+        request,
+        env,
+        ctx,
+        cache,
+        "/the-christadelphian/status",
+        async () => (await buildChristadelphianFeed(christadelphianOptions(env))).diagnostic,
+      );
     } catch (error) {
       return jsonResponse(
         { ok: false, error: error instanceof Error ? error.message : String(error) },

@@ -75,6 +75,33 @@ describe("HTTP routing", () => {
     expect(response.headers.get("X-RSS-Bridge-Cache")).toBe("HIT");
   });
 
+  it("reuses cached Tidings diagnostics across repeated status requests", async () => {
+    const fetcher = vi.fn(
+      async () =>
+        new Response("[]", {
+          headers: {
+            "Content-Type": "application/json; charset=UTF-8",
+            "X-WP-TotalPages": "1",
+          },
+        }),
+    );
+    vi.stubGlobal("fetch", fetcher);
+    const cache = new MemoryCache();
+    const pending: Promise<unknown>[] = [];
+    const ctx = { waitUntil: (promise: Promise<unknown>) => pending.push(promise) };
+    const request = new Request("https://feeds.atwood.fyi/tidings/status");
+
+    const first = await handleRequest(request, {}, ctx, cache);
+    await Promise.all(pending);
+    const second = await handleRequest(request, {}, ctx, cache);
+
+    expect(first.status).toBe(200);
+    expect(await first.json()).toMatchObject({ ok: true, cacheStatus: "MISS" });
+    expect(await second.json()).toMatchObject({ ok: true, cacheStatus: "HIT" });
+    expect(fetcher).toHaveBeenCalledTimes(2);
+    vi.unstubAllGlobals();
+  });
+
   it("serves the combined Christadelphian route from its own cache key", async () => {
     const cache = new MemoryCache();
     const key = new Request("https://feeds.atwood.fyi/the-christadelphian");
