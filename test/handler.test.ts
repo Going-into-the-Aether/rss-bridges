@@ -97,8 +97,20 @@ describe("HTTP routing", () => {
     const second = await handleRequest(request, {}, ctx, cache);
 
     expect(first.status).toBe(200);
-    expect(await first.json()).toMatchObject({ ok: true, cacheStatus: "MISS" });
-    expect(await second.json()).toMatchObject({ ok: true, cacheStatus: "HIT" });
+    expect(await first.json()).toMatchObject({
+      ok: false,
+      partial: true,
+      underfilled: true,
+      underfillReason: "sources-exhausted",
+      cacheStatus: "MISS",
+    });
+    expect(await second.json()).toMatchObject({
+      ok: false,
+      partial: true,
+      underfilled: true,
+      underfillReason: "sources-exhausted",
+      cacheStatus: "HIT",
+    });
     expect(fetcher).toHaveBeenCalledTimes(2);
     vi.unstubAllGlobals();
   });
