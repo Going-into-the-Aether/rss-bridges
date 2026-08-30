@@ -93,12 +93,40 @@ describe("HTTP routing", () => {
 
     const first = await handleRequest(request, {}, ctx, cache);
     await Promise.all(pending);
+    expect(fetcher).toHaveBeenCalledTimes(2);
     const second = await handleRequest(request, {}, ctx, cache);
 
     expect(first.status).toBe(200);
     expect(await first.json()).toMatchObject({ ok: true, cacheStatus: "MISS" });
     expect(await second.json()).toMatchObject({ ok: true, cacheStatus: "HIT" });
     expect(fetcher).toHaveBeenCalledTimes(2);
+    vi.unstubAllGlobals();
+  });
+
+  it("reuses cached Christadelphian diagnostics without another snapshot request", async () => {
+    const fetcher = vi.fn(
+      async () =>
+        new Response("[]", {
+          headers: {
+            "Content-Type": "application/json; charset=UTF-8",
+            "X-WP-TotalPages": "1",
+          },
+        }),
+    );
+    vi.stubGlobal("fetch", fetcher);
+    const cache = new MemoryCache();
+    const pending: Promise<unknown>[] = [];
+    const ctx = { waitUntil: (promise: Promise<unknown>) => pending.push(promise) };
+    const request = new Request("https://feeds.atwood.fyi/the-christadelphian/status");
+
+    const first = await handleRequest(request, {}, ctx, cache);
+    await Promise.all(pending);
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    const second = await handleRequest(request, {}, ctx, cache);
+
+    expect(await first.json()).toMatchObject({ ok: true, cacheStatus: "MISS" });
+    expect(await second.json()).toMatchObject({ ok: true, cacheStatus: "HIT" });
+    expect(fetcher).toHaveBeenCalledTimes(1);
     vi.unstubAllGlobals();
   });
 
