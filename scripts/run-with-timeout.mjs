@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { spawn } from "node:child_process";
+import { constants as osConstants } from "node:os";
 import process from "node:process";
 import { clearTimeout, setTimeout } from "node:timers";
 
@@ -46,9 +47,12 @@ const child = spawn(command[0], command.slice(1), {
   stdio: "inherit",
 });
 let timedOut = false;
+let spawnFailed = false;
+let timeoutTimer;
 let forceKillTimer;
 
 function signalProcessGroup(signal) {
+  if (!Number.isInteger(child.pid) || child.pid <= 0) return;
   try {
     process.kill(-child.pid, signal);
   } catch (error) {
@@ -56,20 +60,25 @@ function signalProcessGroup(signal) {
   }
 }
 
-const timeout = setTimeout(() => {
-  timedOut = true;
-  signalProcessGroup("SIGTERM");
-  forceKillTimer = setTimeout(() => signalProcessGroup("SIGKILL"), 1000);
-}, timeoutSeconds * 1000);
+child.once("spawn", () => {
+  timeoutTimer = setTimeout(() => {
+    timedOut = true;
+    signalProcessGroup("SIGTERM");
+    forceKillTimer = setTimeout(() => signalProcessGroup("SIGKILL"), 1000);
+  }, timeoutSeconds * 1000);
+});
 
 child.once("error", (error) => {
-  clearTimeout(timeout);
+  if (timeoutTimer) clearTimeout(timeoutTimer);
+  if (forceKillTimer) clearTimeout(forceKillTimer);
+  if (timedOut) return;
+  spawnFailed = true;
   writeError(`Failed to start ${label}: ${error.message}`);
   process.exitCode = 1;
 });
 
 child.once("close", (code, signal) => {
-  clearTimeout(timeout);
+  if (timeoutTimer) clearTimeout(timeoutTimer);
   if (forceKillTimer) clearTimeout(forceKillTimer);
   if (timedOut) {
     const unit = timeoutSeconds === 1 ? "second" : "seconds";
@@ -77,5 +86,7 @@ child.once("close", (code, signal) => {
     process.exitCode = 124;
     return;
   }
-  process.exitCode = code ?? (signal ? 1 : 0);
+  if (spawnFailed) return;
+  const signalNumber = signal ? osConstants.signals[signal] : undefined;
+  process.exitCode = code ?? (signalNumber ? 128 + signalNumber : 1);
 });
