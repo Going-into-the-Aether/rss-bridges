@@ -35,6 +35,8 @@ export interface TidingsOptions {
 interface SourceFetch {
   records: WordPressRecord[];
   diagnostic: SourceDiagnostic;
+  nextPage: number;
+  totalPages: number;
 }
 
 function unique(values: string[]): string[] {
@@ -231,21 +233,27 @@ async function mapInBatches(
 async function fetchSource(
   sourceType: (typeof SOURCE_TYPES)[number],
   options: TidingsOptions,
+  startPage = 1,
+  pageBudget?: number,
+  knownTotalPages = 1,
 ): Promise<SourceFetch> {
   const fetcher = options.fetcher ?? fetch;
   const endpoint = `${BASE_URL}/wp-json/wp/v2/${sourceType}`;
   const records: WordPressRecord[] = [];
-  let totalPages = 1;
+  let totalPages = knownTotalPages;
   let pagesFetched = 0;
   const rollingPageCap = Math.ceil(options.rollingLimit / 100) + 1;
-  const pageCap = Math.min(
-    options.maxSourcePages ?? 50,
-    options.mode === "rolling" ? rollingPageCap : Number.POSITIVE_INFINITY,
-  );
+  const pageCap =
+    pageBudget ??
+    Math.min(
+      options.maxSourcePages ?? 50,
+      options.mode === "rolling" ? rollingPageCap : Number.POSITIVE_INFINITY,
+    );
+  let page = startPage;
 
   try {
-    for (let page = 1; page <= totalPages; page += 1) {
-      if (page > pageCap) {
+    for (; page <= totalPages; page += 1) {
+      if (pagesFetched >= pageCap) {
         if (options.mode === "rolling") break;
         return {
           records,
@@ -256,6 +264,8 @@ async function fetchSource(
             recordsFetched: records.length,
             error: `Stopped ${sourceType} after configured page cap ${pageCap}`,
           },
+          nextPage: page,
+          totalPages,
         };
       }
       const url = new URL(endpoint);
@@ -282,6 +292,8 @@ async function fetchSource(
     return {
       records,
       diagnostic: { ok: true, endpoint, pagesFetched, recordsFetched: records.length },
+      nextPage: page,
+      totalPages,
     };
   } catch (error) {
     return {
@@ -293,8 +305,25 @@ async function fetchSource(
         recordsFetched: records.length,
         error: error instanceof Error ? error.message : String(error),
       },
+      nextPage: page,
+      totalPages,
     };
   }
+}
+
+function combineSourceFetch(previous: SourceFetch, next: SourceFetch): SourceFetch {
+  return {
+    records: [...previous.records, ...next.records],
+    diagnostic: {
+      ...previous.diagnostic,
+      ok: previous.diagnostic.ok && next.diagnostic.ok,
+      pagesFetched: previous.diagnostic.pagesFetched + next.diagnostic.pagesFetched,
+      recordsFetched: previous.diagnostic.recordsFetched + next.diagnostic.recordsFetched,
+      error: next.diagnostic.error ?? previous.diagnostic.error,
+    },
+    nextPage: next.nextPage,
+    totalPages: next.totalPages,
+  };
 }
 
 function richerItem(left: FeedItem, right: FeedItem): FeedItem {
@@ -319,10 +348,7 @@ export function mergeItems(items: FeedItem[]): FeedItem[] {
 
 export async function buildTidingsFeed(options: TidingsOptions): Promise<FeedResult> {
   const fetcher = options.fetcher ?? fetch;
-  const sourceResults = await Promise.all(
-    SOURCE_TYPES.map((source) => fetchSource(source, options)),
-  );
-  const completeSources = sourceResults.filter((result) => result.diagnostic.ok).length;
+  let sourceResults = await Promise.all(SOURCE_TYPES.map((source) => fetchSource(source, options)));
   const usableSources = sourceResults.filter(
     (result) => result.diagnostic.ok || result.records.length > 0,
   ).length;
@@ -331,15 +357,65 @@ export async function buildTidingsFeed(options: TidingsOptions): Promise<FeedRes
     throw new Error(`All Tidings sources failed: ${details}`);
   }
 
-  const mapped = await mapInBatches(
+  let mapped = await mapInBatches(
     sourceResults.flatMap((result) => result.records),
     fetcher,
     options.pageFallbackLimit ?? 0,
     options.authorOverrides ?? tidingsAuthorOverrides,
   );
   let items = mergeItems(mapped);
+  if (options.mode === "rolling") {
+    const maxSourcePages = options.maxSourcePages ?? 50;
+    while (items.length < options.rollingLimit) {
+      const fetchable = sourceResults.map(
+        (result) =>
+          result.diagnostic.ok &&
+          result.nextPage <= result.totalPages &&
+          result.diagnostic.pagesFetched < maxSourcePages,
+      );
+      if (!fetchable.some(Boolean)) break;
+
+      const additions = await Promise.all(
+        SOURCE_TYPES.map((source, index) =>
+          fetchable[index]
+            ? fetchSource(
+                source,
+                options,
+                sourceResults[index].nextPage,
+                1,
+                sourceResults[index].totalPages,
+              )
+            : null,
+        ),
+      );
+      const newRecords: WordPressRecord[] = [];
+      sourceResults = sourceResults.map((result, index) => {
+        const addition = additions[index];
+        if (!addition) return result;
+        newRecords.push(...addition.records);
+        return combineSourceFetch(result, addition);
+      });
+      const newlyMapped = await mapInBatches(
+        newRecords,
+        fetcher,
+        options.pageFallbackLimit ?? 0,
+        options.authorOverrides ?? tidingsAuthorOverrides,
+      );
+      mapped = [...mapped, ...newlyMapped];
+      items = mergeItems(mapped);
+    }
+  }
   if (options.mode === "rolling") items = items.slice(0, options.rollingLimit);
+  const underfilled = options.mode === "rolling" && items.length < options.rollingLimit;
+  const pageCapReached = sourceResults.some(
+    (result) =>
+      result.diagnostic.ok &&
+      result.nextPage <= result.totalPages &&
+      result.diagnostic.pagesFetched >= (options.maxSourcePages ?? 50),
+  );
+  const sourceFailed = sourceResults.some((result) => !result.diagnostic.ok);
   const generatedAt = (options.now ?? (() => new Date()))().toISOString();
+  const completeSources = sourceResults.filter((result) => result.diagnostic.ok).length;
   const sources = Object.fromEntries(
     SOURCE_TYPES.map((source, index) => [source, sourceResults[index].diagnostic]),
   );
@@ -347,12 +423,21 @@ export async function buildTidingsFeed(options: TidingsOptions): Promise<FeedRes
   return {
     items,
     diagnostic: {
-      ok: completeSources === SOURCE_TYPES.length,
-      partial: completeSources !== SOURCE_TYPES.length,
+      ok: completeSources === SOURCE_TYPES.length && !underfilled,
+      partial: completeSources !== SOURCE_TYPES.length || underfilled,
       generatedAt,
       mode: options.mode,
       sources,
       mergedItems: items.length,
+      targetItems: options.mode === "rolling" ? options.rollingLimit : undefined,
+      underfilled: options.mode === "rolling" ? underfilled : undefined,
+      underfillReason: underfilled
+        ? sourceFailed
+          ? "source-failure"
+          : pageCapReached
+            ? "page-cap-reached"
+            : "sources-exhausted"
+        : undefined,
       authorFallbacks: items.filter((item) => item.usedFallbackAuthor).length,
       newest: items[0]
         ? {

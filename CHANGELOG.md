@@ -5,6 +5,7 @@
 ### 2026-08-29
 
 - Strip XML 1.0-forbidden control characters from RSS text and full-content CDATA while preserving valid Unicode.
+- Detect rolling Tidings underfill after cross-source deduplication, fetch additional pages when available, and report why the configured target still cannot be reached.
 - Bounded atlas snapshot Git operations and terminate their complete process groups when 1Password-backed transport hangs.
 - Transitioned the Tidings production feed from its completed January 2025 bootstrap to the newest 200 rolling items.
 - Cached feed diagnostics under canonical status keys to prevent monitoring traffic from amplifying upstream requests.
