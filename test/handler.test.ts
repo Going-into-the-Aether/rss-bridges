@@ -14,6 +14,15 @@ class MemoryCache {
 }
 
 describe("HTTP routing", () => {
+  it("defaults the Tidings feed to the newest 200 rolling items", () => {
+    expect(tidingsOptions({})).toEqual({
+      mode: "rolling",
+      bootstrapAfter: "2025-01-01T00:00:00Z",
+      rollingLimit: 200,
+      pageFallbackLimit: 0,
+    });
+  });
+
   it("disables synchronous author-page fallbacks by default", () => {
     expect(tidingsOptions({}).pageFallbackLimit).toBe(0);
     expect(tidingsOptions({ TIDINGS_PAGE_FALLBACK_LIMIT: "2" }).pageFallbackLimit).toBe(2);

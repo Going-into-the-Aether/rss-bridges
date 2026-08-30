@@ -13,7 +13,7 @@
     },
   ],
   "vars": {
-    "TIDINGS_MODE": "bootstrap",
+    "TIDINGS_MODE": "rolling",
     "TIDINGS_BOOTSTRAP_AFTER": "2025-01-01T00:00:00Z",
     "TIDINGS_ROLLING_LIMIT": "200",
     "TIDINGS_PAGE_FALLBACK_LIMIT": "0",

@@ -35,7 +35,7 @@ function nonnegativeIntegerSetting(value: string | undefined, fallback: number):
 
 export function tidingsOptions(env: Env) {
   return {
-    mode: env.TIDINGS_MODE === "rolling" ? ("rolling" as const) : ("bootstrap" as const),
+    mode: env.TIDINGS_MODE === "bootstrap" ? ("bootstrap" as const) : ("rolling" as const),
     bootstrapAfter: env.TIDINGS_BOOTSTRAP_AFTER ?? "2025-01-01T00:00:00Z",
     rollingLimit: integerSetting(env.TIDINGS_ROLLING_LIMIT, 200),
     pageFallbackLimit: nonnegativeIntegerSetting(env.TIDINGS_PAGE_FALLBACK_LIMIT, 0),
