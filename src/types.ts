@@ -30,6 +30,9 @@ export interface FeedDiagnostic {
   mode: "bootstrap" | "rolling";
   sources: Record<string, SourceDiagnostic>;
   mergedItems: number;
+  targetItems?: number;
+  underfilled?: boolean;
+  underfillReason?: "sources-exhausted" | "page-cap-reached" | "source-failure";
   authorFallbacks: number;
   newest: Pick<FeedItem, "title" | "url" | "publishedAt" | "authors"> | null;
 }

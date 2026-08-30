@@ -240,7 +240,7 @@ describe("Tidings source aggregation", () => {
     expect(result.diagnostic.sources.magazine.error).toContain("page cap 1");
   });
 
-  it("treats the rolling fetch cap as normal completion", async () => {
+  it("reports rolling underfill when the configured page cap is exhausted", async () => {
     const fetcher = vi.fn(async (input: RequestInfo | URL) => {
       const url = new URL(String(input));
       const type = url.pathname.endsWith("/magazine") ? "magazine" : "articles";
@@ -261,11 +261,78 @@ describe("Tidings source aggregation", () => {
       bootstrapAfter: "2025-01-01T00:00:00Z",
       rollingLimit: 200,
       pageFallbackLimit: 0,
+      maxSourcePages: 3,
       fetcher: fetcher as typeof fetch,
     });
-    expect(result.diagnostic.partial).toBe(false);
-    expect(result.diagnostic.ok).toBe(true);
+    expect(result.diagnostic.partial).toBe(true);
+    expect(result.diagnostic.ok).toBe(false);
+    expect(result.diagnostic.underfilled).toBe(true);
+    expect(result.diagnostic.underfillReason).toBe("page-cap-reached");
     expect(fetcher).toHaveBeenCalledTimes(6);
+  });
+
+  it("fetches additional rolling pages after cross-source overlap", async () => {
+    const fetcher = vi.fn(async (input: RequestInfo | URL) => {
+      const url = new URL(String(input));
+      const page = Number(url.searchParams.get("page"));
+      return jsonPage(
+        [
+          record({
+            id: page,
+            type: url.pathname.endsWith("/magazine") ? "magazine" : "articles",
+            link: `https://tidings.org/shared/item-${page}/`,
+          }),
+        ],
+        3,
+      );
+    });
+
+    const result = await buildTidingsFeed({
+      mode: "rolling",
+      bootstrapAfter: "2025-01-01T00:00:00Z",
+      rollingLimit: 3,
+      pageFallbackLimit: 0,
+      fetcher: fetcher as typeof fetch,
+    });
+
+    expect(fetcher).toHaveBeenCalledTimes(6);
+    expect(result.items).toHaveLength(3);
+    expect(result.diagnostic).toMatchObject({
+      ok: true,
+      partial: false,
+      mergedItems: 3,
+      targetItems: 3,
+      underfilled: false,
+    });
+  });
+
+  it("reports source exhaustion when overlap leaves the rolling feed underfilled", async () => {
+    const fetcher = vi.fn(async () =>
+      jsonPage([
+        record({
+          link: "https://tidings.org/shared/only-item/",
+        }),
+      ]),
+    );
+
+    const result = await buildTidingsFeed({
+      mode: "rolling",
+      bootstrapAfter: "2025-01-01T00:00:00Z",
+      rollingLimit: 3,
+      pageFallbackLimit: 0,
+      fetcher: fetcher as typeof fetch,
+    });
+
+    expect(fetcher).toHaveBeenCalledTimes(2);
+    expect(result.items).toHaveLength(1);
+    expect(result.diagnostic).toMatchObject({
+      ok: false,
+      partial: true,
+      mergedItems: 1,
+      targetItems: 3,
+      underfilled: true,
+      underfillReason: "sources-exhausted",
+    });
   });
 
   it("returns a valid empty feed when both sources are healthy and empty", async () => {
