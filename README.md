@@ -13,7 +13,7 @@ The adapters serve Tidings.org and theChristadelphian.com with canonical URLs, d
 | <https://feeds.atwood.fyi/the-christadelphian> | Combined The Christadelphian and Faith Alive full-content RSS feed |
 | <https://feeds.atwood.fyi/the-christadelphian/status> | Live or relay source, snapshot timestamp, item-count, and author-fallback diagnostics |
 
-Production currently runs in bootstrap mode and includes articles published on or after January 1, 2025. The configured steady-state mode retains the newest 200 items after bootstrap validation is complete.
+The Tidings feed runs in steady-state rolling mode and retains the newest 200 items. Its completed one-time bootstrap covered all articles published on or after January 1, 2025 and was imported directly into Reader's Later library before this cutover.
 
 The theChristadelphian.com adapter initially includes its complete public blog catalog, beginning May 16, 2024. Each item carries either `The Christadelphian` or `Faith Alive` as RSS category metadata. After bootstrap and Reader validation, its steady-state mode also retains the newest 200 items.
 
