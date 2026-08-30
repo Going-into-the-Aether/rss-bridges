@@ -2,13 +2,12 @@
 set -euo pipefail
 
 repo_root=$(cd "$(dirname "$0")/.." && pwd)
-uah_root=${UAH_ROOT:-"$HOME/Developer/UAH"}
-git_wrapper="$uah_root/scripts/git-uah.sh"
+git_wrapper=${RSS_BRIDGES_GIT_WRAPPER:-}
 timeout_runner="$repo_root/scripts/run-with-timeout.mjs"
 git_timeout_seconds=${RSS_BRIDGES_GIT_TIMEOUT_SECONDS:-120}
 
-if [[ ! -x "$git_wrapper" ]]; then
-  print -u2 "Missing supervised Git wrapper: $git_wrapper"
+if [[ -z "$git_wrapper" || ! -x "$git_wrapper" ]]; then
+  print -u2 "RSS_BRIDGES_GIT_WRAPPER must name an executable supervised Git wrapper."
   exit 1
 fi
 if [[ ! -x "$repo_root/node_modules/.bin/tsx" ]]; then

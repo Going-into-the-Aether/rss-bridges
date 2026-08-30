@@ -1,9 +1,9 @@
 # Security Policy
 
 ## Secrets handling
-Zero-plaintext rule: secrets are never committed to any repository in this org.
-All credentials are managed via a secrets manager and injected at runtime.
-If a secret is accidentally committed: rotate it immediately, then rewrite history.
+
+Do not commit secrets to this repository. Inject credentials at runtime through an appropriate secret store. If a secret enters Git history, revoke or rotate it immediately before removing it from history.
 
 ## Vulnerability reporting
-This is a private organization. Report security concerns directly to the org owner.
+
+Do not disclose a suspected vulnerability in a public issue. Use GitHub's private vulnerability reporting feature when it is available for this repository. Otherwise, contact the repository owner privately through the profile linked from the repository organization.
