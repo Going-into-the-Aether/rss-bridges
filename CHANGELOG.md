@@ -9,7 +9,7 @@
 - Report unresolved Tidings author URLs and mark diagnostics partial when publication-level fallbacks exceed the configured threshold.
 - Strip XML 1.0-forbidden control characters from RSS text and full-content CDATA while preserving valid Unicode.
 - Detect rolling Tidings underfill after cross-source deduplication, fetch additional pages when available, and report why the configured target still cannot be reached.
-- Bounded atlas snapshot Git operations and terminate their complete process groups when 1Password-backed transport hangs.
+- Bounded scheduled snapshot Git operations and terminate their complete process groups when secret-backed transport hangs.
 - Transitioned the Tidings production feed from its completed January 2025 bootstrap to the newest 200 rolling items.
 - Cached feed diagnostics under canonical status keys to prevent monitoring traffic from amplifying upstream requests.
 
@@ -17,7 +17,7 @@
 
 - Added WordPress REST endpoint failover when Cloudflare Worker egress receives an HTML interception response.
 - Added an approved six-hour GitHub data-branch relay for Cloudflare environments blocked by the publisher origin.
-- Moved snapshot refresh execution to the always-on `atlas` host after GitHub-hosted runners also received HTTP 403 from the publisher.
+- Moved snapshot refresh execution to a scheduled macOS host after GitHub-hosted runners also received HTTP 403 from the publisher.
 
 ### 2026-08-27
 
@@ -26,7 +26,7 @@
 - Added sanitized full article HTML to both RSS item `description` and `content:encoded` for Reader compatibility.
 - Added a dry-run-first, URL-idempotent Readwise Reader historical importer with full metadata, rate limiting, and Later as its default destination.
 - Reconciled the historical import to all 283 canonical URLs and documented Reader's stale-pagination limitation.
-- Removed local Claude, GitHub/AetherOS template, and Husky-hook configuration from public tracking; retained portable formatting and repository configuration.
+- Removed local agent, automation-template, and Git-hook configuration from public tracking. Retained portable formatting and repository configuration.
 
 ### 2026-08-26
 

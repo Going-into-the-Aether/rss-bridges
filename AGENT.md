@@ -17,7 +17,7 @@ Provide stable, metadata-rich RSS endpoints through one reusable Cloudflare Work
 - Keep source-specific parsing inside `src/adapters/`.
 - Keep RSS generation and XML escaping source-agnostic.
 - Do not emit a source CMS account as an article author.
-- Do not remove the bootstrap mode until Chris confirms the historical Reader import.
+- Keep the bootstrap mode until verification confirms the historical Reader import.
 - Never push directly to `main`; use a pull request.
 - Keep local harness configuration, editor state, and operator notes out of the public repository.
 
@@ -30,13 +30,10 @@ Provide stable, metadata-rich RSS endpoints through one reusable Cloudflare Work
 | `src/rss.ts`              | RSS 2.0 serialization                                 |
 | `wrangler.jsonc`          | Cloudflare deployment and custom-domain configuration |
 
-## Linked AetherOS skills
+## Review expectations
 
-- Cloudflare
-- Cloudflare Workers Best Practices
-- Wrangler
-- Read the Damn Docs
-- Verification Gate
+- Review Cloudflare Worker changes against the current platform documentation.
+- Run the verification commands documented in `README.md` before deployment.
 
 ## Do Not
 
