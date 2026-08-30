@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { chmod, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { execFile, spawn } from "node:child_process";
@@ -7,6 +7,14 @@ import { describe, expect, it } from "vitest";
 
 const runner = resolve("scripts/run-with-timeout.mjs");
 const execFileAsync = promisify(execFile);
+
+function killProcessGroup(processGroupId: number): void {
+  try {
+    process.kill(-processGroupId, "SIGKILL");
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ESRCH") throw error;
+  }
+}
 
 function run(args: string[]): Promise<{ code: number | null; stderr: string }> {
   return new Promise((resolveRun, reject) => {
@@ -67,28 +75,42 @@ describe("run-with-timeout", () => {
     const directory = await mkdtemp(join(tmpdir(), "rss-bridges-timeout-test."));
     const pidFile = join(directory, "child.pid");
     const descendantPidFile = join(directory, "descendant.pid");
+    const hangingCommand = join(directory, "hang.sh");
+    let processGroupId;
 
     try {
+      await writeFile(
+        hangingCommand,
+        [
+          "#!/bin/sh",
+          `echo $$ > ${JSON.stringify(pidFile)}`,
+          "trap 'exit 0' TERM",
+          `/bin/sh -c 'trap "" TERM; echo $$ > "$1"; while :; do sleep 1; done' child ${JSON.stringify(descendantPidFile)} &`,
+          "wait",
+        ].join("\n"),
+      );
+      await chmod(hangingCommand, 0o700);
+
       const result = await run([
         "--label",
         "test fetch",
         "--timeout-seconds",
         "1",
         "--",
-        "/bin/sh",
-        "-c",
-        `echo $$ > ${JSON.stringify(pidFile)}; /bin/sh -c 'echo $$ > ${descendantPidFile}; sleep 30' & wait`,
+        hangingCommand,
       ]);
 
       expect(result.code).toBe(124);
       expect(result.stderr).toContain("Timed out after 1 second: test fetch");
 
       const pid = Number.parseInt((await readFile(pidFile, "utf8")).trim(), 10);
+      processGroupId = pid;
       const descendantPid = Number.parseInt((await readFile(descendantPidFile, "utf8")).trim(), 10);
       expect(() => process.kill(pid, 0)).toThrow();
       expect(() => process.kill(descendantPid, 0)).toThrow();
     } finally {
+      if (processGroupId) killProcessGroup(processGroupId);
       await rm(directory, { recursive: true, force: true });
     }
-  });
+  }, 7000);
 });

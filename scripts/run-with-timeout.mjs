@@ -69,9 +69,9 @@ child.once("spawn", () => {
 });
 
 child.once("error", (error) => {
+  if (timedOut) return;
   if (timeoutTimer) clearTimeout(timeoutTimer);
   if (forceKillTimer) clearTimeout(forceKillTimer);
-  if (timedOut) return;
   spawnFailed = true;
   writeError(`Failed to start ${label}: ${error.message}`);
   process.exitCode = 1;
@@ -79,13 +79,13 @@ child.once("error", (error) => {
 
 child.once("close", (code, signal) => {
   if (timeoutTimer) clearTimeout(timeoutTimer);
-  if (forceKillTimer) clearTimeout(forceKillTimer);
   if (timedOut) {
     const unit = timeoutSeconds === 1 ? "second" : "seconds";
     writeError(`Timed out after ${timeoutSeconds} ${unit}: ${label}`);
     process.exitCode = 124;
     return;
   }
+  if (forceKillTimer) clearTimeout(forceKillTimer);
   if (spawnFailed) return;
   const signalNumber = signal ? osConstants.signals[signal] : undefined;
   process.exitCode = code ?? (signalNumber ? 128 + signalNumber : 1);
