@@ -32,10 +32,11 @@ supervised_git() {
 bounded_git() {
   local operation=$1
   shift
-  node "$timeout_runner" \
+  GIT_TERMINAL_PROMPT=0 GIT_ASKPASS=/usr/bin/false SSH_ASKPASS=/usr/bin/false \
+    node "$timeout_runner" \
     --label "$operation" \
     --timeout-seconds "$git_timeout_seconds" \
-    -- git "$@"
+    -- git -c credential.helper= "$@"
 }
 
 task_root=$(mktemp -d "${TMPDIR:-/tmp}/rss-bridges-snapshot.XXXXXX")
@@ -54,9 +55,14 @@ trap cleanup EXIT
 cd "$repo_root"
 npm run snapshot:christadelphian -- --output="$snapshot_path"
 
+origin_url=$(git remote get-url origin)
+if [[ "$origin_url" != "$public_data_remote" ]]; then
+  print -u2 "Origin must match the canonical public snapshot remote: $public_data_remote"
+  exit 1
+fi
 bounded_git \
   "fetch public data branch" \
-  fetch "$public_data_remote" \
+  fetch origin \
   "+refs/heads/data:refs/remotes/origin/data"
 git worktree prune
 if git show-ref --verify --quiet refs/heads/data; then

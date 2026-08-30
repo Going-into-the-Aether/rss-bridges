@@ -8,7 +8,11 @@ describe("snapshot publisher transport boundaries", () => {
     expect(script).toContain(
       'public_data_remote="https://github.com/Going-into-the-Aether/rss-bridges.git"',
     );
-    expect(script).toContain('fetch "$public_data_remote"');
+    expect(script).toContain("origin_url=$(git remote get-url origin)");
+    expect(script).toContain('[[ "$origin_url" != "$public_data_remote" ]]');
+    expect(script).toContain("GIT_TERMINAL_PROMPT=0 GIT_ASKPASS=/usr/bin/false");
+    expect(script).toContain("-- git -c credential.helper=");
+    expect(script).toContain("fetch origin");
     expect(script).toContain('"+refs/heads/data:refs/remotes/origin/data"');
     expect(script).not.toContain('supervised_git "fetch public data branch"');
     expect(script).toContain(
