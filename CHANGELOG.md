@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### 2026-08-29
+
+- Bounded atlas snapshot Git operations and terminate their complete process groups when 1Password-backed transport hangs.
+
 ### 2026-08-28
 
 - Added WordPress REST endpoint failover when Cloudflare Worker egress receives an HTML interception response.
