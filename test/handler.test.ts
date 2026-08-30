@@ -75,6 +75,86 @@ describe("HTTP routing", () => {
     expect(response.headers.get("X-RSS-Bridge-Cache")).toBe("HIT");
   });
 
+  it("reuses cached Tidings diagnostics across repeated status requests", async () => {
+    const fetcher = vi.fn(
+      async () =>
+        new Response("[]", {
+          headers: {
+            "Content-Type": "application/json; charset=UTF-8",
+            "X-WP-TotalPages": "1",
+          },
+        }),
+    );
+    vi.stubGlobal("fetch", fetcher);
+    const cache = new MemoryCache();
+    const pending: Promise<unknown>[] = [];
+    const ctx = { waitUntil: (promise: Promise<unknown>) => pending.push(promise) };
+    const request = new Request("https://feeds.atwood.fyi/tidings/status");
+
+    const first = await handleRequest(request, {}, ctx, cache);
+    await Promise.all(pending);
+    expect(fetcher).toHaveBeenCalledTimes(2);
+    const second = await handleRequest(request, {}, ctx, cache);
+
+    expect(first.status).toBe(200);
+    expect(await first.json()).toMatchObject({ ok: true, cacheStatus: "MISS" });
+    expect(await second.json()).toMatchObject({ ok: true, cacheStatus: "HIT" });
+    expect(fetcher).toHaveBeenCalledTimes(2);
+    vi.unstubAllGlobals();
+  });
+
+  it("reuses cached Christadelphian diagnostics without another snapshot request", async () => {
+    const fetcher = vi.fn(
+      async () =>
+        new Response("[]", {
+          headers: {
+            "Content-Type": "application/json; charset=UTF-8",
+            "X-WP-TotalPages": "1",
+          },
+        }),
+    );
+    vi.stubGlobal("fetch", fetcher);
+    const cache = new MemoryCache();
+    const pending: Promise<unknown>[] = [];
+    const ctx = { waitUntil: (promise: Promise<unknown>) => pending.push(promise) };
+    const request = new Request("https://feeds.atwood.fyi/the-christadelphian/status");
+
+    const first = await handleRequest(request, {}, ctx, cache);
+    await Promise.all(pending);
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    const second = await handleRequest(request, {}, ctx, cache);
+
+    expect(await first.json()).toMatchObject({ ok: true, cacheStatus: "MISS" });
+    expect(await second.json()).toMatchObject({ ok: true, cacheStatus: "HIT" });
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    vi.unstubAllGlobals();
+  });
+
+  it.each(["/tidings/status", "/the-christadelphian/status"])(
+    "returns no body for HEAD %s requests",
+    async (path) => {
+      const cache = new MemoryCache();
+      await cache.put(
+        new Request(`https://feeds.atwood.fyi${path}`),
+        new Response(JSON.stringify({ ok: true, partial: false, cacheStatus: "MISS" }), {
+          headers: { "Content-Type": "application/json; charset=UTF-8" },
+        }),
+      );
+
+      const response = await handleRequest(
+        new Request(`https://feeds.atwood.fyi${path}`, { method: "HEAD" }),
+        {},
+        { waitUntil: vi.fn() },
+        cache,
+      );
+
+      expect(response.status).toBe(200);
+      expect(response.body).toBeNull();
+      expect(await response.text()).toBe("");
+      expect(response.headers.get("X-RSS-Bridge-Cache")).toBe("HIT");
+    },
+  );
+
   it("serves the combined Christadelphian route from its own cache key", async () => {
     const cache = new MemoryCache();
     const key = new Request("https://feeds.atwood.fyi/the-christadelphian");

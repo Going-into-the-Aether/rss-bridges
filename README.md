@@ -26,7 +26,7 @@ The theChristadelphian.com adapter initially includes its complete public blog c
 - `src/index.ts` provides Worker routing, diagnostics, and explicit edge caching.
 - `src/data/tidings-author-overrides.json` preserves reviewed historical bylines when source markup is insufficient.
 
-The Worker rejects incomplete historical imports, publishes partial-source diagnostics, and uses a shorter cache lifetime for partial responses. Relay-backed diagnostics identify the raw snapshot endpoint and its `snapshotGeneratedAt` timestamp.
+The Worker rejects incomplete historical imports, publishes partial-source diagnostics, and uses a shorter cache lifetime for partial responses. Status responses use their own canonical cache keys, so repeated monitoring reuses complete or partial diagnostics without rebuilding the upstream feed on every request. Relay-backed diagnostics identify the raw snapshot endpoint and its `snapshotGeneratedAt` timestamp.
 
 ## RSS and Reader behavior
 
