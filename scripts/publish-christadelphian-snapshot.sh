@@ -5,6 +5,7 @@ repo_root=$(cd "$(dirname "$0")/.." && pwd)
 git_wrapper=${RSS_BRIDGES_GIT_WRAPPER:-}
 timeout_runner="$repo_root/scripts/run-with-timeout.mjs"
 git_timeout_seconds=${RSS_BRIDGES_GIT_TIMEOUT_SECONDS:-120}
+public_data_remote="https://github.com/Going-into-the-Aether/rss-bridges.git"
 
 if [[ -z "$git_wrapper" || ! -x "$git_wrapper" ]]; then
   print -u2 "RSS_BRIDGES_GIT_WRAPPER must name an executable supervised Git wrapper."
@@ -53,7 +54,10 @@ trap cleanup EXIT
 cd "$repo_root"
 npm run snapshot:christadelphian -- --output="$snapshot_path"
 
-bounded_git "fetch origin data" fetch origin data
+bounded_git \
+  "fetch public data branch" \
+  fetch "$public_data_remote" \
+  "+refs/heads/data:refs/remotes/origin/data"
 git worktree prune
 if git show-ref --verify --quiet refs/heads/data; then
   git branch --force data refs/remotes/origin/data
