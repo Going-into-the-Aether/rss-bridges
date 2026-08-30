@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cdata, decodeHtmlEntities, sanitizeHtmlContent } from "../src/html";
+import { cdata, decodeHtmlEntities, sanitizeHtmlContent, xmlEscape } from "../src/html";
 
 describe("HTML and XML text handling", () => {
   it("decodes named entities beyond the original hand-written subset", () => {
@@ -13,6 +13,11 @@ describe("HTML and XML text handling", () => {
 
   it("splits a CDATA terminator without changing the text", () => {
     expect(cdata("before]]>after")).toBe("<![CDATA[before]]]]><![CDATA[>after]]>");
+  });
+
+  it("removes XML-forbidden controls while preserving valid Unicode", () => {
+    expect(xmlEscape("before\u0000 & \u0007after 😀")).toBe("before &amp; after 😀");
+    expect(cdata("before\u0007after 😀")).toBe("<![CDATA[beforeafter 😀]]>");
   });
 
   it("removes executable attributes without changing matching prose", () => {
