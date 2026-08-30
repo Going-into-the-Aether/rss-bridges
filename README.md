@@ -23,7 +23,7 @@ The theChristadelphian.com adapter initially includes its complete public blog c
 
 - `src/adapters/tidings.ts` retrieves Tidings WordPress content and extracts source-specific metadata.
 - `src/adapters/the-christadelphian.ts` uses the public WordPress posts API, resolves featured media, preserves the two publication categories, and retains the complete sanitized article body without truncating on editorial headings.
-- `scripts/publish-christadelphian-snapshot.sh` refreshes the approved public snapshot on the isolated `data` branch every six hours from the always-on `atlas` host. The Worker uses it only when every direct WordPress endpoint is unavailable to Cloudflare egress.
+- `scripts/publish-christadelphian-snapshot.sh` refreshes the approved public snapshot on the isolated `data` branch every six hours from a scheduled macOS host. The Worker uses it only when every direct WordPress endpoint is unavailable to Cloudflare egress.
 - `src/rss.ts` serializes the shared feed model as RSS 2.0.
 - `src/index.ts` provides Worker routing, diagnostics, and explicit edge caching.
 - `src/data/tidings-author-overrides.json` preserves reviewed historical bylines when source markup is insufficient.
@@ -103,17 +103,17 @@ npx wrangler deploy --dry-run
 
 ## Repository hygiene
 
-Local agent configuration, GitHub/AetherOS templates, Husky hooks, editor state, Wrangler state, credentials, and operator notes are intentionally ignored. Portable project configuration such as `.gitattributes`, `.gitignore`, ESLint, Prettier, TypeScript, Vitest, Wrangler configuration, and the generic launchd template remains versioned for reproducible development.
+Local agent configuration, automation templates, Git hooks, editor state, Wrangler state, credentials, and operator notes are intentionally ignored. Portable project configuration such as `.gitattributes`, `.gitignore`, ESLint, Prettier, TypeScript, Vitest, Wrangler configuration, and the generic launchd template remains versioned for reproducible development.
 
 ## Snapshot operations
 
-The publisher blocks Cloudflare Worker and GitHub-hosted runner networks. The `atlas` LaunchAgent renders `ops/launchd/ai.aetheros.rss-bridges-snapshot.plist`, runs at load and every 21,600 seconds, and calls:
+The publisher blocks Cloudflare Worker and GitHub-hosted runner networks. A macOS LaunchAgent rendered from `ops/launchd/org.rss-bridges.snapshot.plist` runs at load and every 21,600 seconds, and calls:
 
 ```bash
 npm run snapshot:christadelphian -- --output=<temporary-path>
 ```
 
-The publisher script validates the minimum catalog size and unique IDs, updates only the orphan `data` branch, signs its commit, and pushes through UAH's supervised Git wrapper. Install dependencies once with `npm ci`; no secret is stored in this repository.
+The publisher script validates the minimum catalog size and unique IDs. It updates only the orphan `data` branch and signs its commit. It pushes through a caller-supplied supervised Git wrapper. Replace `__REPO_ROOT__`, `__HOME__`, and `__GIT_WRAPPER__` in the LaunchAgent template during installation. Install dependencies once with `npm ci`. This repository stores no secret.
 
 ## Security
 

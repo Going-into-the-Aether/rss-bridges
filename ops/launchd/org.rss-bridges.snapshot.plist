@@ -3,15 +3,20 @@
 <plist version="1.0">
 <dict>
   <key>Label</key>
-  <string>ai.aetheros.rss-bridges-snapshot</string>
+  <string>org.rss-bridges.snapshot</string>
   <key>ProgramArguments</key>
   <array>
     <string>/bin/zsh</string>
     <string>-lc</string>
-    <string>exec "__HOME__/Developer/Repositories/Going-into-the-Aether/rss-bridges/scripts/publish-christadelphian-snapshot.sh"</string>
+    <string>exec "__REPO_ROOT__/scripts/publish-christadelphian-snapshot.sh"</string>
   </array>
   <key>WorkingDirectory</key>
-  <string>__HOME__/Developer/Repositories/Going-into-the-Aether/rss-bridges</string>
+  <string>__REPO_ROOT__</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>RSS_BRIDGES_GIT_WRAPPER</key>
+    <string>__GIT_WRAPPER__</string>
+  </dict>
   <key>RunAtLoad</key>
   <true/>
   <key>StartInterval</key>
