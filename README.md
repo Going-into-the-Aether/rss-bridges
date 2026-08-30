@@ -15,6 +15,8 @@ The adapters serve Tidings.org and theChristadelphian.com with canonical URLs, d
 
 The Tidings feed runs in steady-state rolling mode and retains the newest 200 items. Its completed one-time bootstrap covered all articles published on or after January 1, 2025 and was imported directly into Reader's Later library before this cutover. Rolling collection continues into later source pages when cross-source URL deduplication leaves the feed short. Status diagnostics report `underfilled`, `targetItems`, and whether a remaining shortfall came from source exhaustion, a source failure, or the configured page cap. An underfilled rolling result is intentionally `ok: false` and `partial: true`, even when every available source page was fetched successfully.
 
+Author diagnostics report `authorFallbacks`, `authorFallbackThreshold`, `authorFallbackExceeded`, and `unresolvedAuthorUrls`. Production defaults the threshold to zero, so any newly unresolved canonical URL makes status `ok: false` and `partial: true` while the RSS item remains available with the publication-level fallback author. Add a verified canonical author override or improve extraction before raising the threshold.
+
 The theChristadelphian.com adapter initially includes its complete public blog catalog, beginning May 16, 2024. Each item carries either `The Christadelphian` or `Faith Alive` as RSS category metadata. After bootstrap and Reader validation, its steady-state mode also retains the newest 200 items.
 
 ## How it works

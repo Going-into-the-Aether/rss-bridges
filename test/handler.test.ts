@@ -20,7 +20,14 @@ describe("HTTP routing", () => {
       bootstrapAfter: "2025-01-01T00:00:00Z",
       rollingLimit: 200,
       pageFallbackLimit: 0,
+      authorFallbackThreshold: 0,
     });
+  });
+
+  it("accepts a configured author fallback threshold", () => {
+    expect(tidingsOptions({ TIDINGS_AUTHOR_FALLBACK_THRESHOLD: "2" }).authorFallbackThreshold).toBe(
+      2,
+    );
   });
 
   it("disables synchronous author-page fallbacks by default", () => {

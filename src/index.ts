@@ -8,6 +8,7 @@ export interface Env {
   TIDINGS_BOOTSTRAP_AFTER?: string;
   TIDINGS_ROLLING_LIMIT?: string;
   TIDINGS_PAGE_FALLBACK_LIMIT?: string;
+  TIDINGS_AUTHOR_FALLBACK_THRESHOLD?: string;
   CHRISTADELPHIAN_MODE?: "bootstrap" | "rolling";
   CHRISTADELPHIAN_BOOTSTRAP_AFTER?: string;
   CHRISTADELPHIAN_ROLLING_LIMIT?: string;
@@ -40,6 +41,7 @@ export function tidingsOptions(env: Env) {
     bootstrapAfter: env.TIDINGS_BOOTSTRAP_AFTER ?? "2025-01-01T00:00:00Z",
     rollingLimit: integerSetting(env.TIDINGS_ROLLING_LIMIT, 200),
     pageFallbackLimit: nonnegativeIntegerSetting(env.TIDINGS_PAGE_FALLBACK_LIMIT, 0),
+    authorFallbackThreshold: nonnegativeIntegerSetting(env.TIDINGS_AUTHOR_FALLBACK_THRESHOLD, 0),
   };
 }
 

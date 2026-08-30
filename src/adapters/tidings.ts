@@ -26,6 +26,7 @@ export interface TidingsOptions {
   bootstrapAfter: string;
   rollingLimit: number;
   pageFallbackLimit?: number;
+  authorFallbackThreshold?: number;
   maxSourcePages?: number;
   authorOverrides?: Record<string, string[]>;
   fetcher?: typeof fetch;
@@ -414,6 +415,11 @@ export async function buildTidingsFeed(options: TidingsOptions): Promise<FeedRes
       result.diagnostic.pagesFetched >= (options.maxSourcePages ?? 50),
   );
   const sourceFailed = sourceResults.some((result) => !result.diagnostic.ok);
+  const unresolvedAuthorUrls = items
+    .filter((item) => item.usedFallbackAuthor)
+    .map((item) => item.url);
+  const authorFallbackThreshold = options.authorFallbackThreshold ?? 0;
+  const authorFallbackExceeded = unresolvedAuthorUrls.length > authorFallbackThreshold;
   const generatedAt = (options.now ?? (() => new Date()))().toISOString();
   const completeSources = sourceResults.filter((result) => result.diagnostic.ok).length;
   const sources = Object.fromEntries(
@@ -423,8 +429,8 @@ export async function buildTidingsFeed(options: TidingsOptions): Promise<FeedRes
   return {
     items,
     diagnostic: {
-      ok: completeSources === SOURCE_TYPES.length && !underfilled,
-      partial: completeSources !== SOURCE_TYPES.length || underfilled,
+      ok: completeSources === SOURCE_TYPES.length && !underfilled && !authorFallbackExceeded,
+      partial: completeSources !== SOURCE_TYPES.length || underfilled || authorFallbackExceeded,
       generatedAt,
       mode: options.mode,
       sources,
@@ -438,7 +444,10 @@ export async function buildTidingsFeed(options: TidingsOptions): Promise<FeedRes
             ? "page-cap-reached"
             : "sources-exhausted"
         : undefined,
-      authorFallbacks: items.filter((item) => item.usedFallbackAuthor).length,
+      authorFallbacks: unresolvedAuthorUrls.length,
+      authorFallbackThreshold,
+      authorFallbackExceeded,
+      unresolvedAuthorUrls,
       newest: items[0]
         ? {
             title: items[0].title,
