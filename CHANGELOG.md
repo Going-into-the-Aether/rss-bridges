@@ -4,6 +4,7 @@
 
 ### 2026-08-29
 
+- Resolve relative article-body links and image candidates against the publisher origin, preserve fragment links, and add bounded Reader save retries with canonical-URL failure reporting.
 - Report unresolved Tidings author URLs and mark diagnostics partial when publication-level fallbacks exceed the configured threshold.
 - Strip XML 1.0-forbidden control characters from RSS text and full-content CDATA while preserving valid Unicode.
 - Detect rolling Tidings underfill after cross-source deduplication, fetch additional pages when available, and report why the configured target still cannot be reached.

@@ -37,6 +37,7 @@ The Worker rejects incomplete historical imports, publishes partial-source diagn
 - The WordPress service account `fm_dev` is never used as an article author.
 - `The Christadelphian Tidings` is used only when no defensible displayed byline is available.
 - Sanitized full article HTML is emitted in both item `description` and `content:encoded`. This duplication is intentional: Reader RSS consumes `description`, while other clients commonly prefer `content:encoded`.
+- Relative links, image sources, and `srcset` candidates in article bodies are resolved against their publisher's site origin; same-document fragment links remain unchanged.
 - Short excerpts remain available to the direct Reader backlog importer as document summaries.
 - theChristadelphian.com exposes the generic `The Christadelphian Office` WordPress author for almost every post. The adapter extracts an explicit individual byline only when the article body supplies one and reports generic-author fallbacks in diagnostics.
 
@@ -79,7 +80,7 @@ READWISE_TOKEN='<runtime-secret>' \
   npm run import:christadelphian-reader -- --apply --location=later
 ```
 
-Do not store the token in the repository or a committed environment file. Reader deduplicates saves by canonical URL. A repeated run reports existing documents separately from newly created documents. The importer defaults to Later and stays below Reader's 50-save-per-minute limit.
+Do not store the token in the repository or a committed environment file. Reader deduplicates saves by canonical URL. A repeated run reports existing documents separately from newly created documents. The importer defaults to Later and stays below Reader's 50-save-per-minute limit. Reader saves retry HTTP 429 and transient 5xx responses with bounded exponential backoff, honor `Retry-After`, and report the canonical article URL on permanent or exhausted failures.
 
 ## Deployment
 

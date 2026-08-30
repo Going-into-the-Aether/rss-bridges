@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-import { assertCompleteFeed, importReaderBacklog, toReaderDocument } from "../src/readwise";
+import {
+  assertCompleteFeed,
+  importReaderBacklog,
+  saveReaderDocument,
+  toReaderDocument,
+} from "../src/readwise";
 import type { FeedItem, FeedResult } from "../src/types";
 
 const item: FeedItem = {
@@ -96,5 +101,112 @@ describe("Reader historical import", () => {
         tags: ["the-christadelphian", "articles"],
       }),
     );
+  });
+
+  it("honors Retry-After on a bounded 429 retry", async () => {
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response("slow down", { status: 429, headers: { "Retry-After": "2" } }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ id: "created" }), {
+          status: 201,
+          headers: { "Content-Type": "application/json" },
+        }),
+      );
+    const wait = vi.fn(async () => undefined);
+
+    await expect(
+      saveReaderDocument("token", toReaderDocument(item), fetcher as typeof fetch, { wait }),
+    ).resolves.toEqual({ status: 201, id: "created" });
+    expect(wait).toHaveBeenCalledWith(2_000);
+    expect(fetcher).toHaveBeenCalledTimes(2);
+  });
+
+  it("retries transient 5xx responses with exponential backoff", async () => {
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(new Response("temporary", { status: 503 }))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ id: "existing" }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      );
+    const wait = vi.fn(async () => undefined);
+
+    await expect(
+      saveReaderDocument("token", toReaderDocument(item), fetcher as typeof fetch, { wait }),
+    ).resolves.toEqual({ status: 200, id: "existing" });
+    expect(wait).toHaveBeenCalledWith(1_000);
+  });
+
+  it("uses exponential backoff for a whitespace-only Retry-After header", async () => {
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response("temporary", { status: 503, headers: { "Retry-After": " " } }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ id: "existing" }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      );
+    const wait = vi.fn(async () => undefined);
+
+    await saveReaderDocument("token", toReaderDocument(item), fetcher as typeof fetch, { wait });
+
+    expect(wait).toHaveBeenCalledWith(1_000);
+  });
+
+  it("uses exponential backoff for a negative Retry-After value", async () => {
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response("temporary", { status: 503, headers: { "Retry-After": "-1" } }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ id: "existing" }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      );
+    const wait = vi.fn(async () => undefined);
+
+    await saveReaderDocument("token", toReaderDocument(item), fetcher as typeof fetch, { wait });
+
+    expect(wait).toHaveBeenCalledWith(1_000);
+  });
+
+  it("stops after bounded transient retries and reports the canonical URL", async () => {
+    const fetcher = vi.fn(async () => new Response("temporary", { status: 503 }));
+    const wait = vi.fn(async () => undefined);
+
+    await expect(
+      saveReaderDocument("token", toReaderDocument(item), fetcher as typeof fetch, {
+        maxAttempts: 3,
+        wait,
+      }),
+    ).rejects.toThrow(`${item.url}: Reader save failed with HTTP 503 after 3 attempts`);
+    expect(fetcher).toHaveBeenCalledTimes(3);
+    expect(wait.mock.calls).toEqual([[1_000], [2_000]]);
+  });
+
+  it("does not retry permanent failures and reports them as failed imports", async () => {
+    const fetcher = vi.fn(async () => new Response("invalid", { status: 400 }));
+    const wait = vi.fn(async () => undefined);
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const result = await importReaderBacklog([item], {
+      apply: true,
+      save: (document) => saveReaderDocument("token", document, fetcher as typeof fetch, { wait }),
+      wait,
+    });
+
+    expect(result.failed).toBe(1);
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    expect(error).toHaveBeenCalledWith(`${item.url}: Reader save failed with HTTP 400: invalid`);
+    error.mockRestore();
   });
 });

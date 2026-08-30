@@ -18,7 +18,32 @@ export function stripHtml(value: string): string {
     .trim();
 }
 
-export function sanitizeHtmlContent(value: string): string {
+function absoluteContentUrl(value: string, baseUrl: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) return value;
+  if (trimmed.startsWith("#")) return trimmed;
+  try {
+    return new URL(trimmed, baseUrl).toString();
+  } catch {
+    return value;
+  }
+}
+
+function absoluteSrcset(value: string, baseUrl: string): string {
+  return value
+    .split(",")
+    .map((candidate) => {
+      const parts = candidate.trim().split(/\s+/);
+      if (!parts[0]) return "";
+      parts[0] = absoluteContentUrl(parts[0], baseUrl);
+      return parts.join(" ");
+    })
+    .filter(Boolean)
+    .join(", ");
+}
+
+export function sanitizeHtmlContent(value: string, baseUrl?: string): string {
+  const contentBaseUrl = baseUrl ? new URL("/", baseUrl).toString() : undefined;
   return sanitizeHtml(value, {
     allowedTags: sanitizeHtml.defaults.allowedTags.concat(["img", "figure", "figcaption"]),
     allowedAttributes: {
@@ -31,6 +56,31 @@ export function sanitizeHtmlContent(value: string): string {
       blockquote: ["cite"],
     },
     allowedSchemes: ["http", "https", "mailto", "tel"],
+    transformTags: contentBaseUrl
+      ? {
+          a: (tagName, attributes) => ({
+            tagName,
+            attribs: {
+              ...attributes,
+              ...(attributes.href
+                ? { href: absoluteContentUrl(attributes.href, contentBaseUrl) }
+                : {}),
+            },
+          }),
+          img: (tagName, attributes) => ({
+            tagName,
+            attribs: {
+              ...attributes,
+              ...(attributes.src
+                ? { src: absoluteContentUrl(attributes.src, contentBaseUrl) }
+                : {}),
+              ...(attributes.srcset
+                ? { srcset: absoluteSrcset(attributes.srcset, contentBaseUrl) }
+                : {}),
+            },
+          }),
+        }
+      : undefined,
   }).trim();
 }
 
