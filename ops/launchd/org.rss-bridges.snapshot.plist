@@ -24,8 +24,8 @@
   <key>ProcessType</key>
   <string>Background</string>
   <key>StandardOutPath</key>
-  <string>__HOME__/Library/Logs/rss-bridges-snapshot.log</string>
+  <string>__LOG_DIR__/rss-bridges-snapshot.log</string>
   <key>StandardErrorPath</key>
-  <string>__HOME__/Library/Logs/rss-bridges-snapshot.error.log</string>
+  <string>__LOG_DIR__/rss-bridges-snapshot.error.log</string>
 </dict>
 </plist>
