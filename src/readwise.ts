@@ -25,7 +25,15 @@ export interface ReaderImportResult {
   eligible: number;
   created: number;
   existing: number;
+  retained: number;
+  rejected: number;
+  missing: number;
   failed: number;
+}
+
+export interface ReaderReconciliationResult {
+  status: "retained" | "rejected" | "missing";
+  reason?: string;
 }
 
 export interface ReaderDocumentOptions {
@@ -44,6 +52,12 @@ export interface ReaderSaveOptions {
   maxDelayMilliseconds?: number;
   wait?: (milliseconds: number) => Promise<void>;
   now?: () => number;
+}
+
+export interface ReaderReconciliationOptions {
+  maxAttempts?: number;
+  pollDelayMilliseconds?: number;
+  wait?: (milliseconds: number) => Promise<void>;
 }
 
 export function assertCompleteFeed(feed: FeedResult, sourceName = "Tidings"): void {
@@ -137,12 +151,92 @@ export async function saveReaderDocument(
   }
 }
 
+export async function reconcileReaderDocument(
+  token: string,
+  expected: ReaderDocument,
+  documentId: string,
+  fetcher: typeof fetch = fetch,
+  options: ReaderReconciliationOptions = {},
+): Promise<ReaderReconciliationResult> {
+  const maxAttempts = Math.max(1, Math.floor(options.maxAttempts ?? 4));
+  const pollDelayMilliseconds = Math.max(3_100, options.pollDelayMilliseconds ?? 3_100);
+  const wait =
+    options.wait ?? ((milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)));
+
+  let attempt = 0;
+  while (true) {
+    attempt += 1;
+    const query = new URLSearchParams({ id: documentId, withHtmlContent: "true" });
+    const response = await fetcher(`https://readwise.io/api/v3/list/?${query.toString()}`, {
+      headers: { Authorization: `Token ${token}` },
+    });
+    const retryable = response.status === 429 || response.status >= 500;
+    if (response.status !== 200 && retryable && attempt < maxAttempts) {
+      await response.text();
+      const retryAfterSeconds = Number(response.headers.get("Retry-After")?.trim());
+      const retryAfterMilliseconds =
+        Number.isFinite(retryAfterSeconds) && retryAfterSeconds >= 0
+          ? retryAfterSeconds * 1_000
+          : 0;
+      await wait(Math.max(pollDelayMilliseconds, retryAfterMilliseconds));
+      continue;
+    }
+    if (response.status !== 200) {
+      const detail = (await response.text()).slice(0, 500);
+      throw new Error(
+        `${expected.url}: Reader reconciliation failed with HTTP ${response.status}: ${detail}`,
+      );
+    }
+
+    const body = (await response.json()) as {
+      results?: Array<{
+        id?: string;
+        source_url?: string;
+        location?: string;
+        tags?: Record<string, unknown>;
+        html_content?: string;
+      }>;
+    };
+    const document = body.results?.find((candidate) => candidate.id === documentId);
+    if (!document) {
+      if (attempt < maxAttempts) {
+        await wait(pollDelayMilliseconds);
+        continue;
+      }
+      return { status: "missing", reason: "document not found by exact id" };
+    }
+
+    if (document.source_url !== expected.url)
+      return { status: "rejected", reason: "canonical URL mismatch" };
+    if (document.location !== expected.location)
+      return { status: "rejected", reason: "location mismatch" };
+    const retainedTags = new Set(Object.keys(document.tags ?? {}));
+    const missingContent = !document.html_content?.trim();
+    const missingTags = expected.tags.some((tag) => !retainedTags.has(tag));
+    if (missingContent || missingTags) {
+      if (attempt < maxAttempts) {
+        await wait(pollDelayMilliseconds);
+        continue;
+      }
+      return {
+        status: "rejected",
+        reason: missingContent ? "full HTML content missing" : "tag mismatch",
+      };
+    }
+    return { status: "retained" };
+  }
+}
+
 export async function importReaderBacklog(
   items: FeedItem[],
   options: {
     apply: boolean;
     location?: ReaderLocation;
     save: (document: ReaderDocument) => Promise<ReaderSaveResult>;
+    reconcile?: (
+      document: ReaderDocument,
+      saved: ReaderSaveResult,
+    ) => Promise<ReaderReconciliationResult>;
     wait?: (milliseconds: number) => Promise<void>;
     documentOptions?: ReaderImportDocumentOptions;
   },
@@ -151,6 +245,9 @@ export async function importReaderBacklog(
     eligible: items.length,
     created: 0,
     existing: 0,
+    retained: 0,
+    rejected: 0,
+    missing: 0,
     failed: 0,
   };
   if (!options.apply) return result;
@@ -158,6 +255,8 @@ export async function importReaderBacklog(
   const wait =
     options.wait ?? ((milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)));
   for (const [index, item] of items.entries()) {
+    let saved: ReaderSaveResult;
+    let document: ReaderDocument;
     try {
       const documentOptions = options.documentOptions
         ? {
@@ -165,15 +264,31 @@ export async function importReaderBacklog(
             tags: options.documentOptions.tags(item),
           }
         : undefined;
-      const saved = await options.save(toReaderDocument(item, options.location, documentOptions));
+      document = toReaderDocument(item, options.location, documentOptions);
+      saved = await options.save(document);
       if (saved.status === 201) result.created += 1;
       else result.existing += 1;
     } catch (error) {
       result.failed += 1;
       const message = error instanceof Error ? error.message : String(error);
       console.error(message.startsWith(`${item.url}:`) ? message : `${item.url}: ${message}`);
+      if (index < items.length - 1) await wait(options.reconcile ? 3_100 : 1_300);
+      continue;
     }
-    if (index < items.length - 1) await wait(1_300);
+    if (options.reconcile) {
+      try {
+        const reconciliation = await options.reconcile(document, saved);
+        result[reconciliation.status] += 1;
+        if (reconciliation.status !== "retained") {
+          console.error(`${item.url}: ${reconciliation.reason ?? reconciliation.status}`);
+        }
+      } catch (error) {
+        result.failed += 1;
+        const message = error instanceof Error ? error.message : String(error);
+        console.error(message.startsWith(`${item.url}:`) ? message : `${item.url}: ${message}`);
+      }
+    }
+    if (index < items.length - 1) await wait(options.reconcile ? 3_100 : 1_300);
   }
   return result;
 }

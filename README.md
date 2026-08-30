@@ -41,7 +41,7 @@ The Worker rejects incomplete historical imports, publishes partial-source diagn
 - Short excerpts remain available to the direct Reader backlog importer as document summaries.
 - theChristadelphian.com exposes the generic `The Christadelphian Office` WordPress author for almost every post. The adapter extracts an explicit individual byline only when the article body supplies one and reports generic-author fallbacks in diagnostics.
 
-The one-time historical importer saves documents to Reader's **Later** location. Reader's list API can return a stale paginated snapshot after bulk moves, so reconciliation must compare canonical URLs and use exact document reads for any apparent gap. That hardening is tracked in [issue #11](https://github.com/Going-into-the-Aether/rss-bridges/issues/11).
+The one-time historical importer saves documents to Reader's **Later** location. After each accepted save it polls Reader's exact-ID list query with full HTML enabled, verifies the canonical source URL, location, required tags, and non-empty body, and reports retained, rejected, and missing counts separately. Exact-ID reconciliation stays below Reader's 20-list-requests-per-minute limit. Aggregate pagination is not used as completion proof because it can remain stale after bulk operations.
 
 The combined theChristadelphian.com import tags each Reader document with `the-christadelphian`, `historical-import`, and its source category slug (`the-christadelphian` or `faith-alive`).
 Use `--limit=3` for the first applied pilot; rerunning without the limit is URL-idempotent and completes the catalog.
@@ -80,7 +80,7 @@ READWISE_TOKEN='<runtime-secret>' \
   npm run import:christadelphian-reader -- --apply --location=later
 ```
 
-Do not store the token in the repository or a committed environment file. Reader deduplicates saves by canonical URL. A repeated run reports existing documents separately from newly created documents. The importer defaults to Later and stays below Reader's 50-save-per-minute limit. Reader saves retry HTTP 429 and transient 5xx responses with bounded exponential backoff, honor `Retry-After`, and report the canonical article URL on permanent or exhausted failures.
+Do not store the token in the repository or a committed environment file. Reader deduplicates saves by canonical URL. A repeated run reports existing documents separately from newly created documents. The importer defaults to Later and stays below Reader's save and exact-list rate limits. Reader saves retry HTTP 429 and transient 5xx responses with bounded exponential backoff, honor `Retry-After`, and report the canonical article URL on permanent or exhausted failures. An applied import exits nonzero if any save fails or any accepted document is rejected or remains missing after reconciliation.
 
 ## Deployment
 

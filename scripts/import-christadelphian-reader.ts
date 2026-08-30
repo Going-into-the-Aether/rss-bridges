@@ -2,6 +2,7 @@ import { buildChristadelphianFeed } from "../src/adapters/the-christadelphian";
 import {
   assertCompleteFeed,
   importReaderBacklog,
+  reconcileReaderDocument,
   saveReaderDocument,
   type ReaderLocation,
 } from "../src/readwise";
@@ -74,10 +75,11 @@ const result = await importReaderBacklog(selectedItems, {
   apply,
   location,
   save: (document) => saveReaderDocument(token ?? "", document),
+  reconcile: (document, saved) => reconcileReaderDocument(token ?? "", document, saved.id),
   documentOptions: {
     savedUsing: "rss-bridges-the-christadelphian-bootstrap",
     tags: (item) => ["the-christadelphian", "historical-import", item.sourceType],
   },
 });
 console.log(JSON.stringify(result, null, 2));
-if (result.failed > 0) process.exitCode = 1;
+if (result.failed > 0 || result.rejected > 0 || result.missing > 0) process.exitCode = 1;

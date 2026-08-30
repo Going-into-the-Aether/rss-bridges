@@ -2,6 +2,7 @@ import { buildTidingsFeed } from "../src/adapters/tidings";
 import {
   assertCompleteFeed,
   importReaderBacklog,
+  reconcileReaderDocument,
   saveReaderDocument,
   type ReaderLocation,
 } from "../src/readwise";
@@ -33,6 +34,7 @@ const result = await importReaderBacklog(feed.items, {
   apply,
   location,
   save: (document) => saveReaderDocument(token ?? "", document),
+  reconcile: (document, saved) => reconcileReaderDocument(token ?? "", document, saved.id),
 });
 console.log(JSON.stringify(result, null, 2));
-if (result.failed > 0) process.exitCode = 1;
+if (result.failed > 0 || result.rejected > 0 || result.missing > 0) process.exitCode = 1;
