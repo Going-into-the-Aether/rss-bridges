@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   assertCompleteFeed,
   importReaderBacklog,
+  reconcileReaderDocument,
   saveReaderDocument,
   toReaderDocument,
 } from "../src/readwise";
@@ -68,7 +69,15 @@ describe("Reader historical import", () => {
     const save = vi.fn();
     const result = await importReaderBacklog([item], { apply: false, save });
     expect(save).not.toHaveBeenCalled();
-    expect(result).toEqual({ eligible: 1, created: 0, existing: 0, failed: 0 });
+    expect(result).toEqual({
+      eligible: 1,
+      created: 0,
+      existing: 0,
+      retained: 0,
+      rejected: 0,
+      missing: 0,
+      failed: 0,
+    });
   });
 
   it("counts server-side URL deduplication separately from new documents", async () => {
@@ -81,7 +90,162 @@ describe("Reader historical import", () => {
       save,
       wait: async () => undefined,
     });
-    expect(result).toEqual({ eligible: 2, created: 1, existing: 1, failed: 0 });
+    expect(result).toEqual({
+      eligible: 2,
+      created: 1,
+      existing: 1,
+      retained: 0,
+      rejected: 0,
+      missing: 0,
+      failed: 0,
+    });
+  });
+
+  it("polls an accepted save by exact id until its full document is retained", async () => {
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ results: [] }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            results: [
+              {
+                id: "new-id",
+                source_url: item.url,
+                location: "later",
+                tags: { tidings: "tidings", "historical-import": "historical-import" },
+                html_content: item.contentHtml,
+              },
+            ],
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+      );
+    const wait = vi.fn(async () => undefined);
+
+    await expect(
+      reconcileReaderDocument("token", toReaderDocument(item), "new-id", fetcher as typeof fetch, {
+        wait,
+      }),
+    ).resolves.toEqual({ status: "retained" });
+    expect(wait).toHaveBeenCalledWith(3_100);
+    expect(fetcher.mock.calls[0]?.[0]).toContain("id=new-id");
+    expect(fetcher.mock.calls[0]?.[0]).toContain("withHtmlContent=true");
+  });
+
+  it("reports accepted saves that never appear as missing", async () => {
+    const fetcher = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ results: [] }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+    );
+
+    await expect(
+      reconcileReaderDocument(
+        "token",
+        toReaderDocument(item),
+        "missing-id",
+        fetcher as typeof fetch,
+        {
+          maxAttempts: 2,
+          wait: async () => undefined,
+        },
+      ),
+    ).resolves.toEqual({ status: "missing", reason: "document not found by exact id" });
+  });
+
+  it("waits for an existing document shell to receive its full body and tags", async () => {
+    const pending = {
+      id: "new-id",
+      source_url: item.url,
+      location: "later",
+      tags: {},
+      html_content: "",
+    };
+    const retained = {
+      ...pending,
+      tags: { tidings: "tidings", "historical-import": "historical-import" },
+      html_content: item.contentHtml,
+    };
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(Response.json({ results: [pending] }))
+      .mockResolvedValueOnce(Response.json({ results: [retained] }));
+    const wait = vi.fn(async () => undefined);
+
+    await expect(
+      reconcileReaderDocument("token", toReaderDocument(item), "new-id", fetcher as typeof fetch, {
+        wait,
+      }),
+    ).resolves.toEqual({ status: "retained" });
+    expect(wait).toHaveBeenCalledWith(3_100);
+  });
+
+  it("retries transient exact-id lookup failures while honoring Retry-After", async () => {
+    const retained = {
+      id: "new-id",
+      source_url: item.url,
+      location: "later",
+      tags: { tidings: "tidings", "historical-import": "historical-import" },
+      html_content: item.contentHtml,
+    };
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response("slow down", { status: 429, headers: { "Retry-After": "5" } }),
+      )
+      .mockResolvedValueOnce(Response.json({ results: [retained] }));
+    const wait = vi.fn(async () => undefined);
+
+    await expect(
+      reconcileReaderDocument("token", toReaderDocument(item), "new-id", fetcher as typeof fetch, {
+        wait,
+      }),
+    ).resolves.toEqual({ status: "retained" });
+    expect(wait).toHaveBeenCalledWith(5_000);
+  });
+
+  it("reports retained, rejected, and missing saves separately", async () => {
+    const save = vi.fn().mockResolvedValue({ status: 201, id: "new-id" });
+    const reconcile = vi
+      .fn()
+      .mockResolvedValueOnce({ status: "retained" })
+      .mockResolvedValueOnce({ status: "rejected", reason: "location mismatch" })
+      .mockResolvedValueOnce({ status: "missing", reason: "not found" });
+    const items = [item, { ...item, id: "articles:2" }, { ...item, id: "articles:3" }];
+
+    const wait = vi.fn(async () => undefined);
+    const result = await importReaderBacklog(items, {
+      apply: true,
+      save,
+      reconcile,
+      wait,
+    });
+
+    expect(result).toMatchObject({ created: 3, retained: 1, rejected: 1, missing: 1, failed: 0 });
+    expect(wait.mock.calls).toEqual([[3_100], [3_100]]);
+  });
+
+  it("reports reconciliation transport failures separately from rejected documents", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const result = await importReaderBacklog([item], {
+      apply: true,
+      save: async () => ({ status: 201, id: "new-id" }),
+      reconcile: async () => {
+        throw new Error("Reader list unavailable");
+      },
+      wait: async () => undefined,
+    });
+
+    expect(result).toMatchObject({ created: 1, retained: 0, rejected: 0, missing: 0, failed: 1 });
+    error.mockRestore();
   });
 
   it("passes source-specific document options through the importer", async () => {
