@@ -42,4 +42,22 @@ describe("HTML and XML text handling", () => {
     expect(sanitized).toContain('<h2 id="section">');
     expect(sanitized).toContain('colspan="2"');
   });
+
+  it("makes relative article links and image candidates absolute while preserving fragments", () => {
+    const sanitized = sanitizeHtmlContent(
+      '<a href="/about">About</a><a href=" #section">Jump</a>' +
+        '<a href="javascript:alert(1)">Unsafe</a>' +
+        '<img src="images/photo.jpg" srcset="/small.jpg 1x, images/large.jpg 2x">' +
+        '<img src="data:text/html,unsafe">',
+      "https://tidings.org/articles/example/",
+    );
+
+    expect(sanitized).toContain('href="https://tidings.org/about"');
+    expect(sanitized).toContain('href="#section"');
+    expect(sanitized).not.toMatch(/javascript:|data:text\/html/i);
+    expect(sanitized).toContain('src="https://tidings.org/images/photo.jpg"');
+    expect(sanitized).toContain(
+      'srcset="https://tidings.org/small.jpg 1x, https://tidings.org/images/large.jpg 2x"',
+    );
+  });
 });
