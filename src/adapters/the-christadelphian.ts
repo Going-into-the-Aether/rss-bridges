@@ -161,7 +161,7 @@ function imageUrl(record: ChristadelphianPost, contentHtml: string): string | un
 
 function mapPost(record: ChristadelphianPost): FeedItem {
   const rawContent = (record.content?.rendered ?? "").trim();
-  const contentHtml = sanitizeHtmlContent(rawContent);
+  const contentHtml = sanitizeHtmlContent(rawContent, "https://thechristadelphian.com/");
   if (!contentHtml) throw new Error(`Post ${record.id} has no usable article body`);
   const explicitAuthors = extractChristadelphianAuthors(rawContent);
   const categories = categoryLabels(record);

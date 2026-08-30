@@ -38,6 +38,14 @@ export interface ReaderImportDocumentOptions {
   tags: (item: FeedItem) => string[];
 }
 
+export interface ReaderSaveOptions {
+  maxAttempts?: number;
+  baseDelayMilliseconds?: number;
+  maxDelayMilliseconds?: number;
+  wait?: (milliseconds: number) => Promise<void>;
+  now?: () => number;
+}
+
 export function assertCompleteFeed(feed: FeedResult, sourceName = "Tidings"): void {
   if (!feed.diagnostic.ok || feed.diagnostic.partial) {
     throw new Error(`Refusing partial ${sourceName} import: every upstream source must complete`);
@@ -71,22 +79,62 @@ export async function saveReaderDocument(
   token: string,
   document: ReaderDocument,
   fetcher: typeof fetch = fetch,
+  options: ReaderSaveOptions = {},
 ): Promise<ReaderSaveResult> {
-  const response = await fetcher("https://readwise.io/api/v3/save/", {
-    method: "POST",
-    headers: {
-      Authorization: `Token ${token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(document),
-  });
-  if (response.status !== 200 && response.status !== 201) {
+  const maxAttempts = Math.max(1, Math.floor(options.maxAttempts ?? 4));
+  const baseDelayMilliseconds = Math.max(0, options.baseDelayMilliseconds ?? 1_000);
+  const maxDelayMilliseconds = Math.max(
+    baseDelayMilliseconds,
+    options.maxDelayMilliseconds ?? 60_000,
+  );
+  const wait =
+    options.wait ?? ((milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)));
+  const now = options.now ?? Date.now;
+
+  let attempt = 0;
+  while (true) {
+    attempt += 1;
+    const response = await fetcher("https://readwise.io/api/v3/save/", {
+      method: "POST",
+      headers: {
+        Authorization: `Token ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(document),
+    });
+    if (response.status === 200 || response.status === 201) {
+      const body = (await response.json()) as { id?: string };
+      if (!body.id)
+        throw new Error(
+          `${document.url}: Reader save returned HTTP ${response.status} without an id`,
+        );
+      return { status: response.status, id: body.id };
+    }
+
+    const retryable = response.status === 429 || response.status >= 500;
+    if (retryable && attempt < maxAttempts) {
+      await response.text();
+      const retryAfter = response.headers.get("Retry-After");
+      let delay = baseDelayMilliseconds * 2 ** (attempt - 1);
+      const normalizedRetryAfter = retryAfter?.trim();
+      if (normalizedRetryAfter) {
+        const seconds = Number(normalizedRetryAfter);
+        const unsignedSeconds = /^\d+(?:\.\d+)?$/.test(normalizedRetryAfter);
+        const retryDate = unsignedSeconds ? Number.NaN : Date.parse(normalizedRetryAfter);
+        if (unsignedSeconds && Number.isFinite(seconds)) delay = seconds * 1_000;
+        else if (!/^[+-]?\d/.test(normalizedRetryAfter) && Number.isFinite(retryDate))
+          delay = Math.max(0, retryDate - now());
+      }
+      await wait(Math.min(delay, maxDelayMilliseconds));
+      continue;
+    }
+
     const detail = (await response.text()).slice(0, 500);
-    throw new Error(`Reader save failed with HTTP ${response.status}: ${detail}`);
+    const attempts = retryable ? ` after ${attempt} attempts` : "";
+    throw new Error(
+      `${document.url}: Reader save failed with HTTP ${response.status}${attempts}: ${detail}`,
+    );
   }
-  const body = (await response.json()) as { id?: string };
-  if (!body.id) throw new Error(`Reader save returned HTTP ${response.status} without an id`);
-  return { status: response.status, id: body.id };
 }
 
 export async function importReaderBacklog(
@@ -122,7 +170,8 @@ export async function importReaderBacklog(
       else result.existing += 1;
     } catch (error) {
       result.failed += 1;
-      console.error(`${item.url}: ${error instanceof Error ? error.message : String(error)}`);
+      const message = error instanceof Error ? error.message : String(error);
+      console.error(message.startsWith(`${item.url}:`) ? message : `${item.url}: ${message}`);
     }
     if (index < items.length - 1) await wait(1_300);
   }

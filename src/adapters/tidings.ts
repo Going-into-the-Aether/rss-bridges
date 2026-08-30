@@ -177,7 +177,7 @@ async function mapRecord(
     modifiedAt: wordpressGmt(record.modified_gmt ?? record.date_gmt),
     authors: usedFallbackAuthor ? [FALLBACK_AUTHOR] : authors,
     description: descriptionFrom(record),
-    contentHtml: sanitizeHtmlContent(content),
+    contentHtml: sanitizeHtmlContent(content, `${BASE_URL}/`),
     imageUrl: extractImageUrl(content),
     categories: [],
     sourceType: record.type,
