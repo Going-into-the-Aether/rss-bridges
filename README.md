@@ -115,7 +115,7 @@ npm run snapshot:christadelphian -- --output=<temporary-path>
 
 The publisher script validates the minimum catalog size and unique IDs. It fetches the public `data` branch without credentials and within the configured timeout. It updates only that orphan branch and signs its commit.
 
-The script uses the caller-supplied supervised Git wrapper only when changed content requires a push. Replace `__REPO_ROOT__`, `__LOG_DIR__`, and `__GIT_WRAPPER__` in the LaunchAgent template during installation. Install dependencies once with `npm ci`. This repository stores no secret.
+The script uses a caller-supplied commit wrapper to create and verify signed snapshot commits. It uses the caller-supplied supervised Git wrapper only when changed content requires a push. Replace `__REPO_ROOT__`, `__LOG_DIR__`, `__GIT_WRAPPER__`, and `__COMMIT_WRAPPER__` in the LaunchAgent template during installation. Both wrappers must be executable. Install dependencies once with `npm ci`. This repository stores no secret or operator-specific path.
 
 ## Security
 

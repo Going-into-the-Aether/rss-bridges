@@ -3,12 +3,17 @@ set -euo pipefail
 
 repo_root=$(cd "$(dirname "$0")/.." && pwd)
 git_wrapper=${RSS_BRIDGES_GIT_WRAPPER:-}
+commit_wrapper=${RSS_BRIDGES_COMMIT_WRAPPER:-}
 timeout_runner="$repo_root/scripts/run-with-timeout.mjs"
 git_timeout_seconds=${RSS_BRIDGES_GIT_TIMEOUT_SECONDS:-120}
 public_data_remote="https://github.com/Going-into-the-Aether/rss-bridges.git"
 
 if [[ -z "$git_wrapper" || ! -x "$git_wrapper" ]]; then
   print -u2 "RSS_BRIDGES_GIT_WRAPPER must name an executable supervised Git wrapper."
+  exit 1
+fi
+if [[ -z "$commit_wrapper" || ! -x "$commit_wrapper" ]]; then
+  print -u2 "RSS_BRIDGES_COMMIT_WRAPPER must name an executable commit-signing wrapper."
   exit 1
 fi
 if [[ ! -x "$repo_root/node_modules/.bin/tsx" ]]; then
@@ -79,6 +84,6 @@ if git -C "$data_worktree" diff --cached --quiet; then
   exit 0
 fi
 
-git -C "$data_worktree" commit -S -m "data: refresh Christadelphian snapshot"
+"$commit_wrapper" -C "$data_worktree" commit -m "data: refresh Christadelphian snapshot"
 supervised_git "push origin data" -C "$data_worktree" push origin data
 print "Published refreshed Christadelphian snapshot."

@@ -16,6 +16,8 @@
   <dict>
     <key>RSS_BRIDGES_GIT_WRAPPER</key>
     <string>__GIT_WRAPPER__</string>
+    <key>RSS_BRIDGES_COMMIT_WRAPPER</key>
+    <string>__COMMIT_WRAPPER__</string>
   </dict>
   <key>RunAtLoad</key>
   <true/>
