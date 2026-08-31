@@ -4,6 +4,8 @@
 
 ### 2026-08-30
 
+- Routed unattended snapshot commits through an explicit caller-supplied signing wrapper so scheduled publication does not depend on an interactive signing agent.
+- Removed the deleted operator note from reachable public branch history and retired stale topic branches that retained it.
 - Removed the scheduled snapshot job's credential dependency for public data-branch fetches while retaining bounded execution and supervised pushes.
 
 ### 2026-08-29
