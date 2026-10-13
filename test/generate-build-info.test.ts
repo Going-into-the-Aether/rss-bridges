@@ -1,5 +1,6 @@
 import { execFileSync, spawnSync } from "node:child_process";
 import {
+  chmodSync,
   copyFileSync,
   existsSync,
   mkdtempSync,
@@ -124,16 +125,13 @@ describe("build provenance generation", () => {
     expect(collectBuildInfo(root).release_version).toBeNull();
   });
 
-  it.each([" M src/index.ts", "M  src/index.ts", "?? new-source.ts"])(
-    "reports dirty %s and refuses strict preparation",
-    (dirty) => {
-      status = dirty;
-      tags = "v2026.10.1";
-      expect(collectBuildInfo(root)).toMatchObject({ source_dirty: true, release_version: null });
-      expect(() => generateBuildInfo(root, true)).toThrow("clean source");
-      expect(existsSync(join(root, "generated/build-info.ts"))).toBe(false);
-    },
-  );
+  it.each(["new-source.ts\0"])("reports dirty %s and refuses strict preparation", (dirty) => {
+    status = dirty;
+    tags = "v2026.10.1";
+    expect(collectBuildInfo(root)).toMatchObject({ source_dirty: true, release_version: null });
+    expect(() => generateBuildInfo(root, true)).toThrow("clean source");
+    expect(existsSync(join(root, "generated/build-info.ts"))).toBe(false);
+  });
 
   it("refuses ambiguous exact release identity", () => {
     tags = "v2026.10.1\nv2026.10.2";
@@ -207,6 +205,59 @@ describe("build provenance generation", () => {
     expect(existsSync(join(root, "generated/build-info.ts"))).toBe(false);
   });
 
+  it.each(["staged-only", "executable", "deleted", "filter"])(
+    "checks real Git %s state",
+    (state) => {
+      const git = (args: string[]) => {
+        const result = spawnSync("git", args, {
+          cwd: root,
+          encoding: "utf8",
+          env: Object.fromEntries(
+            Object.entries(process.env).filter(([key]) => !key.startsWith("GIT_")),
+          ),
+        });
+        expect(result.status, result.stderr).toBe(0);
+        return result.stdout;
+      };
+      git(["init", "-q"]);
+      mkdirSync(join(root, "scripts"));
+      const script = join(root, "scripts/generate-build-info.ts");
+      copyFileSync("scripts/generate-build-info.ts", script);
+      writeFileSync(join(root, ".gitignore"), "generated/\n");
+      writeFileSync(join(root, ".gitattributes"), "source.txt filter=probe\n");
+      const target = join(root, "source.txt");
+      writeFileSync(target, "original");
+      git(["add", "."]);
+      git([
+        "-c",
+        "user.name=Fixture",
+        "-c",
+        "user.email=fixture@example.invalid",
+        "-c",
+        "commit.gpgsign=false",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "commit",
+        "-qm",
+        "fixture",
+      ]);
+      if (state === "staged-only") {
+        writeFileSync(target, "modified");
+        git(["add", "source.txt"]);
+        writeFileSync(target, "original");
+      } else if (state === "executable") chmodSync(target, 0o755);
+      else if (state === "deleted") rmSync(target);
+      else git(["config", "filter.probe.clean", "touch .git/filter-ran; cat"]);
+      const result = spawnSync(process.execPath, [script, "--strict"], {
+        cwd: root,
+        encoding: "utf8",
+      });
+      expect(result.status, result.stderr).toBe(state === "filter" ? 0 : 1);
+      expect(existsSync(join(root, ".git/filter-ran"))).toBe(false);
+      if (state !== "filter") expect(result.stderr).toContain("clean source");
+    },
+  );
+
   it("refuses identity from an enclosing repository", () => {
     const git = (args: string[]) => {
       const result = spawnSync("git", args, {
@@ -276,7 +327,7 @@ describe("moving source and hidden index flags", () => {
       vi.mocked(execFileSync).mockImplementation((_file, args) => {
         if (args?.[10] === "--show-toplevel") return process.cwd();
         if (args?.[9] === "rev-parse") return "a".repeat(40);
-        if (args?.[9] === "ls-files") return flags;
+        if (args?.[9] === "ls-files" && args.includes("-v")) return flags;
         return "";
       });
       expect(() => collectBuildInfo(".", true)).toThrow("clean source");
