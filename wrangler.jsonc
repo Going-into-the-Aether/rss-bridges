@@ -5,6 +5,7 @@
   "compatibility_date": "2026-08-28",
   "build": {
     "command": "node scripts/generate-build-info.ts",
+    "watch_dir": ["src", "scripts"],
   },
   "version_metadata": {
     "binding": "CF_VERSION_METADATA",

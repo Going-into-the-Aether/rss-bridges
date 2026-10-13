@@ -2,7 +2,7 @@ import { buildTidingsFeed } from "./adapters/tidings";
 import { buildChristadelphianFeed } from "./adapters/the-christadelphian";
 import { renderRss } from "./rss";
 import type { FeedDiagnostic } from "./types";
-import { buildInfo } from "./generated/build-info";
+import { buildInfo } from "../generated/build-info";
 
 export interface Env {
   CF_VERSION_METADATA?: WorkerVersionMetadata;

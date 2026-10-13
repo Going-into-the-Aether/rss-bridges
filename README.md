@@ -114,10 +114,13 @@ separate data updates and do not allocate Worker release versions.
 
 Wrangler's custom build runs `node scripts/generate-build-info.ts` for both
 `npm run deploy` and direct `npx wrangler deploy`. It also runs for local dev
-and deploy dry-runs. The generated `src/generated/build-info.ts` is ignored,
+and deploy dry-runs. The generated `generated/build-info.ts` is ignored,
 so generation does not dirty its own source. Do not commit it or bypass the
-custom build with `--no-build`. Git failures stop the build. Normal local
-builds can report dirty sources truthfully, including untracked files.
+custom build with `--no-build`. That unsupported bypass can reuse stale generated
+metadata; the build identity contract depends on the custom build and independent
+live tag/source verification. Git failures stop the build. Generated output lives outside the watched source
+and script directories, so local development does not trigger a rebuild loop. Normal local
+builds can report dirty sources truthfully, including untracked files and index flags that could hide modifications.
 
 `GET /build-info.json` requires no authentication and performs no feed fetch
 or cache access. It returns `Cache-Control: no-store` and these fields:
@@ -128,7 +131,8 @@ or cache access. It returns `Cache-Control: no-store` and these fields:
 - `built_at`: UTC generation time, not deployment time.
 - `build_id`: the full source SHA. Rebuilds of the same source share this ID.
 - `release_version`: CalVer without `v`, only when clean HEAD has exactly one
-  valid milestone tag. Ancestor or unrelated tags never supply this value.
+  valid locally available milestone tag. Ancestor or unrelated tags never supply
+  this value; a tagless checkout reports null even if a remote tag exists.
 - `cloudflare`: `id`, `tag`, and `timestamp` from the runtime's
   [`CF_VERSION_METADATA` binding](https://developers.cloudflare.com/workers/runtime-apis/bindings/version-metadata/).
   Its timestamp is the Worker version creation time. Its tag is Cloudflare's

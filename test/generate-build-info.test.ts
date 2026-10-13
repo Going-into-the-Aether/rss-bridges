@@ -24,6 +24,8 @@ describe("build provenance generation", () => {
       switch (args?.[0]) {
         case "rev-parse":
           return sha;
+        case "ls-files":
+          return "";
         case "status":
           return status;
         case "tag":
@@ -51,7 +53,7 @@ describe("build provenance generation", () => {
     });
     expect(Date.parse(info.built_at!)).toBeGreaterThanOrEqual(before);
     expect(Date.parse(info.built_at!)).toBeLessThanOrEqual(Date.now());
-    expect(readFileSync(join(root, "src/generated/build-info.ts"), "utf8")).toContain(sha);
+    expect(readFileSync(join(root, "generated/build-info.ts"), "utf8")).toContain(sha);
     expect(execFileSync).toHaveBeenCalledWith(
       "git",
       ["tag", "--points-at", "HEAD"],
@@ -92,7 +94,7 @@ describe("build provenance generation", () => {
       tags = "v2026.10.1";
       expect(collectBuildInfo(root)).toMatchObject({ source_dirty: true, release_version: null });
       expect(() => generateBuildInfo(root, true)).toThrow("clean source");
-      expect(existsSync(join(root, "src/generated/build-info.ts"))).toBe(false);
+      expect(existsSync(join(root, "generated/build-info.ts"))).toBe(false);
     },
   );
 
@@ -101,14 +103,17 @@ describe("build provenance generation", () => {
     expect(() => collectBuildInfo(root)).toThrow("Multiple CalVer tags");
   });
 
-  it.each(["rev-parse", "status", "tag"])("fails closed on Git %s failure", (command) => {
-    vi.mocked(execFileSync).mockImplementation((_file, args) => {
-      if (args?.[0] === command) throw new Error("private path must not leak");
-      return args?.[0] === "rev-parse" ? sha : "";
-    });
-    expect(() => generateBuildInfo(root)).toThrow(`Git ${command} failed`);
-    expect(existsSync(join(root, "src/generated/build-info.ts"))).toBe(false);
-  });
+  it.each(["rev-parse", "status", "tag", "ls-files"])(
+    "fails closed on Git %s failure",
+    (command) => {
+      vi.mocked(execFileSync).mockImplementation((_file, args) => {
+        if (args?.[0] === command) throw new Error("private path must not leak");
+        return args?.[0] === "rev-parse" ? sha : "";
+      });
+      expect(() => generateBuildInfo(root)).toThrow(`Git ${command} failed`);
+      expect(existsSync(join(root, "generated/build-info.ts"))).toBe(false);
+    },
+  );
 
   it("rejects short SHAs", () => {
     vi.mocked(execFileSync).mockReturnValue("abcdef0");
@@ -122,6 +127,30 @@ describe("build provenance generation", () => {
     expect(result.status).toBe(1);
     expect(result.stderr).toContain("Git rev-parse failed");
     expect(result.stdout).toBe("");
-    expect(existsSync(join(root, "src/generated/build-info.ts"))).toBe(false);
+    expect(existsSync(join(root, "generated/build-info.ts"))).toBe(false);
   });
+});
+
+describe("moving source and hidden index flags", () => {
+  it("rejects a changed HEAD instead of emitting stale provenance", () => {
+    let heads = 0;
+    vi.mocked(execFileSync).mockImplementation((_file, args) => {
+      if (args?.[0] === "rev-parse") return ++heads === 1 ? "a".repeat(40) : "b".repeat(40);
+      return "";
+    });
+    expect(() => collectBuildInfo(".")).toThrow("HEAD changed");
+    vi.resetAllMocks();
+  });
+  it.each(["h hidden-source.ts\0", "S hidden-source.ts\0"])(
+    "refuses hidden index flag %s in strict mode",
+    (flags) => {
+      vi.mocked(execFileSync).mockImplementation((_file, args) => {
+        if (args?.[0] === "rev-parse") return "a".repeat(40);
+        if (args?.[0] === "ls-files") return flags;
+        return "";
+      });
+      expect(() => collectBuildInfo(".", true)).toThrow("clean source");
+      vi.resetAllMocks();
+    },
+  );
 });

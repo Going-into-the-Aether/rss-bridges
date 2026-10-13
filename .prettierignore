@@ -2,4 +2,4 @@
 AGENT.md
 README.md
 SECURITY.md
-src/generated/build-info.ts
+generated/build-info.ts
