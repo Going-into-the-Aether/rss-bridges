@@ -137,7 +137,13 @@ describe("build provenance generation", () => {
 
   it("refuses identity from an enclosing repository", () => {
     const git = (args: string[]) => {
-      const result = spawnSync("git", args, { cwd: root, encoding: "utf8" });
+      const result = spawnSync("git", args, {
+        cwd: root,
+        encoding: "utf8",
+        env: Object.fromEntries(
+          Object.entries(process.env).filter(([key]) => !key.startsWith("GIT_")),
+        ),
+      });
       expect(result.status, result.stderr).toBe(0);
     };
     git(["init", "-q"]);
