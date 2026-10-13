@@ -1,5 +1,5 @@
 import { execFileSync, spawnSync } from "node:child_process";
-import { copyFileSync, existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { copyFileSync, existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -128,7 +128,8 @@ describe("build provenance generation", () => {
   });
 
   it("exits nonzero outside Git without generating unknown deployment metadata", () => {
-    const script = join(root, "generate-build-info.ts");
+    mkdirSync(join(root, "scripts"));
+    const script = join(root, "scripts/generate-build-info.ts");
     copyFileSync("scripts/generate-build-info.ts", script);
     const result = spawnSync(process.execPath, [script], { cwd: root, encoding: "utf8" });
     expect(result.status).toBe(1);
