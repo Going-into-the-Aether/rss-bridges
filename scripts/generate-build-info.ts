@@ -16,7 +16,7 @@ const projectRoot = fileURLToPath(new URL("..", import.meta.url));
 
 function git(root: string, args: string[]): string {
   try {
-    return execFileSync(
+    const output = execFileSync(
       "git",
       [
         "--no-optional-locks",
@@ -41,7 +41,8 @@ function git(root: string, args: string[]): string {
           GIT_NO_REPLACE_OBJECTS: "1",
         },
       },
-    ).trim();
+    );
+    return args.includes("-z") ? output : output.replace(/\n$/, "");
   } catch {
     throw new Error(`Git ${args[0]} failed; build provenance was not generated.`);
   }

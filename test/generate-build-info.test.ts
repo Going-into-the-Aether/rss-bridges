@@ -120,6 +120,8 @@ describe("build provenance generation", () => {
     "v2026.01.1",
     "v2026.10.1-rc1",
     "2026.10.1",
+    "v2026.10.1\u2028",
+    "v2026.10.1\u2028not-calver",
   ])("rejects malformed milestone tag %s", (tag) => {
     tags = tag;
     expect(collectBuildInfo(root).release_version).toBeNull();
