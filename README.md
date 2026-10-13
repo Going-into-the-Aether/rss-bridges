@@ -128,6 +128,8 @@ or cache access. It returns `Cache-Control: no-store` and these fields:
 - `schema_version`: 1.
 - `source_commit`: full 40-character source SHA.
 - `source_dirty`: whether tracked or nonignored untracked source changes were present.
+  Git ignore rules include local `.git/info/exclude` and global user excludes,
+  so untracked scope can vary by machine. Ignored inputs are not certified.
   Ignored files and installed dependencies are outside this Git source check.
   This is a source observation, not an atomic snapshot of a concurrently edited
   workspace; release builds require an unchanged checkout and fresh dependencies.
