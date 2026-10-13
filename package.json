@@ -7,6 +7,8 @@
     "node": "^24.0.0 || >=26.0.0"
   },
   "scripts": {
+    "build:info": "node scripts/generate-build-info.ts",
+    "release:prepare": "node scripts/generate-build-info.ts --strict",
     "deploy": "wrangler deploy",
     "dev": "wrangler dev",
     "format": "prettier --write .",

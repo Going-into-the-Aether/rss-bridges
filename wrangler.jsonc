@@ -3,6 +3,12 @@
   "name": "rss-bridges",
   "main": "src/index.ts",
   "compatibility_date": "2026-08-28",
+  "build": {
+    "command": "node scripts/generate-build-info.ts",
+  },
+  "version_metadata": {
+    "binding": "CF_VERSION_METADATA",
+  },
   "observability": {
     "enabled": true,
   },

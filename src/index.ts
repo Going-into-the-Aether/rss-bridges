@@ -2,8 +2,10 @@ import { buildTidingsFeed } from "./adapters/tidings";
 import { buildChristadelphianFeed } from "./adapters/the-christadelphian";
 import { renderRss } from "./rss";
 import type { FeedDiagnostic } from "./types";
+import { buildInfo } from "./generated/build-info";
 
 export interface Env {
+  CF_VERSION_METADATA?: WorkerVersionMetadata;
   TIDINGS_MODE?: "bootstrap" | "rolling";
   TIDINGS_BOOTSTRAP_AFTER?: string;
   TIDINGS_ROLLING_LIMIT?: string;
@@ -150,14 +152,28 @@ export async function handleRequest(
   request: Request,
   env: Env,
   ctx: ExecutionContextLike,
-  cache: CacheLike = caches.default,
+  cache?: CacheLike,
 ): Promise<Response> {
   if (request.method !== "GET" && request.method !== "HEAD") {
     return jsonResponse({ error: "Method not allowed" }, 405);
   }
 
   const url = new URL(request.url);
+  if (url.pathname === "/build-info.json") {
+    const response = jsonResponse({
+      ...buildInfo,
+      cloudflare: {
+        id: env.CF_VERSION_METADATA?.id || null,
+        tag: env.CF_VERSION_METADATA?.tag || null,
+        timestamp: env.CF_VERSION_METADATA?.timestamp || null,
+      },
+    });
+    response.headers.set("Cache-Control", "no-store");
+    return request.method === "HEAD" ? new Response(null, response) : response;
+  }
   if (url.pathname === "/") return Response.redirect(new URL("/tidings", url).toString(), 302);
+
+  cache ??= caches.default;
 
   if (url.pathname === "/tidings/status") {
     try {

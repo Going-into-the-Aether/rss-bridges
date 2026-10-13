@@ -8,6 +8,7 @@ The adapters serve Tidings.org and theChristadelphian.com with canonical URLs, d
 
 | Route | Purpose |
 | --- | --- |
+| <https://feeds.atwood.fyi/build-info.json> | Uncached Worker source, build, release, and Cloudflare version identity |
 | <https://feeds.atwood.fyi/tidings> | Tidings.org RSS 2.0 feed |
 | <https://feeds.atwood.fyi/tidings/status> | Source, extraction, partial-feed, and author-fallback diagnostics |
 | <https://feeds.atwood.fyi/the-christadelphian> | Combined The Christadelphian and Faith Alive full-content RSS feed |
@@ -100,6 +101,98 @@ npm run lint
 npm run format:check
 npx wrangler deploy --dry-run
 ```
+
+## Release and build identity
+
+`.release-policy.json` uses schema 1 for `Going-into-the-Aether/rss-bridges`.
+Stable releases are deliberate CalVer milestones. Tags use `vYYYY.M.N`, with
+a four-digit year, month 1 through 12, and a positive milestone number starting
+at 1 each month. Do not pad month or milestone numbers. Choose the milestone
+only when preparing an approved release. `package.json` version `0.1.0` remains
+package scaffolding. Snapshot publications on the orphan `data` branch are
+separate data updates and do not allocate Worker release versions.
+
+Wrangler's custom build runs `node scripts/generate-build-info.ts` for both
+`npm run deploy` and direct `npx wrangler deploy`. It also runs for local dev
+and deploy dry-runs. The generated `src/generated/build-info.ts` is ignored,
+so generation does not dirty its own source. Do not commit it or bypass the
+custom build with `--no-build`. Git failures stop the build. Normal local
+builds can report dirty sources truthfully, including untracked files.
+
+`GET /build-info.json` requires no authentication and performs no feed fetch
+or cache access. It returns `Cache-Control: no-store` and these fields:
+
+- `schema_version`: 1.
+- `source_commit`: full 40-character source SHA.
+- `source_dirty`: whether tracked or untracked source changes were present.
+- `built_at`: UTC generation time, not deployment time.
+- `build_id`: the full source SHA. Rebuilds of the same source share this ID.
+- `release_version`: CalVer without `v`, only when clean HEAD has exactly one
+  valid milestone tag. Ancestor or unrelated tags never supply this value.
+- `cloudflare`: `id`, `tag`, and `timestamp` from the runtime's
+  [`CF_VERSION_METADATA` binding](https://developers.cloudflare.com/workers/runtime-apis/bindings/version-metadata/).
+  Its timestamp is the Worker version creation time. Its tag is Cloudflare's
+  version tag and does not prove Git tag identity.
+
+Missing metadata is `null`, including unknown dirty state. Tests use a safe
+unknown source module even when a previous generated file exists. Type-checks
+work before generation. Wrangler local dev generates measured source metadata;
+runtime metadata may differ from production. A dirty build's SHA identifies
+its base commit, not its uncommitted contents. Use the dirty flag and Cloudflare
+version ID together to avoid claiming identical artifacts from a shared SHA.
+
+### Release gate
+
+Keep the release behavior and its `CHANGELOG.md` entry in the same PR.
+Relates to Going-into-the-Aether/UAH#2644.
+
+After the reviewed changes are committed, prepare from a clean checkout of
+the exact candidate source. An untagged candidate reports a null release version.
+An authorized exact release tag supplies the version on a subsequent build. Run the checks in Deployment,
+then run:
+
+```bash
+npm run release:prepare
+RSS_BRIDGES_RELEASE=1 npx wrangler deploy --dry-run
+git rev-parse HEAD
+git status --porcelain --untracked-files=all
+git tag --points-at HEAD
+```
+
+Strict preparation refuses dirty or ambiguous sources. It permits clean
+untagged candidates without claiming a release version. Set
+`RSS_BRIDGES_RELEASE=1` on the separately authorized deployment too, so its
+custom build repeats the gate. Neither preparation nor dry-run creates tags,
+commits, releases, or deployments. No tracked generated file reserves a version.
+
+After an authorized deployment, inspect without fetching a feed:
+
+```bash
+curl --fail --silent --show-error -i https://feeds.atwood.fyi/build-info.json
+npx wrangler deployments list
+npx wrangler versions view <cloudflare-version-id>
+git rev-parse 'vYYYY.M.N^{commit}'
+```
+
+Retain the clean source result, exact tag and peeled commit, relevant check
+results, live response and its `no-store` header, and the matching Cloudflare
+version ID as release evidence. The live SHA/build ID must equal the tag's
+commit, `source_dirty` must be false, and `release_version`, when present, must match the tag. A null version on a
+pre-tag deployment needs a separate verified remote tag-to-live-SHA mapping;
+it is not inferred from the latest historical tag.
+A dry-run cannot prove which version serves production. During a gradual
+rollout, inspect each serving version and record the deployment state.
+
+### Recovery
+
+If identity is missing or mismatched, stop release verification. Confirm the
+checkout and exact tags, rerun strict preparation, and inspect the Cloudflare
+deployment before taking another action. Never fill unknown values from the
+latest historical tag or assume package scaffolding is a release version.
+For an authorized recovery, select a previously verified Cloudflare version
+through the deployment controls or rebuild its clean tagged source. Inspect
+the live endpoint again and retain the recovered version ID. A rebuild can
+share a build ID while having a new generation time and Cloudflare version ID.
 
 ## Repository hygiene
 

@@ -27,3 +27,4 @@ REPOSITORY_NOTE.md
 coverage/
 dist/
 node_modules/
+src/generated/build-info.ts
