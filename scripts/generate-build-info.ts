@@ -22,6 +22,9 @@ function git(root: string, args: string[]): string {
 }
 
 export function collectBuildInfo(root: string, strict = false): BuildInfo {
+  if (realpathSync(git(root, ["rev-parse", "--show-toplevel"])) !== realpathSync(root)) {
+    throw new Error("Expected the project repository root.");
+  }
   const sourceCommit = git(root, ["rev-parse", "--verify", "HEAD"]);
   if (!/^[0-9a-f]{40}$/.test(sourceCommit)) {
     throw new Error("Expected a full 40-character source SHA.");
