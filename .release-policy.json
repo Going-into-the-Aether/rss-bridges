@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "repository": "Going-into-the-Aether/rss-bridges",
+  "scheme": "calver",
+  "version_source": {
+    "kind": "tag"
+  },
+  "tag_prefix": "v",
+  "channel": "stable",
+  "release_mode": "milestone",
+  "evidence_required": [
+    "clean-source-commit",
+    "live-source-build-info",
+    "cloudflare-version-id",
+    "tag-commit-identity",
+    "relevant-checks"
+  ],
+  "exceptions": [
+    "package.json 0.1.0 is scaffolding metadata, not the release version.",
+    "Feed content and data-branch snapshots publish independently of Worker code.",
+    "Source SHA identifies code; Cloudflare version ID identifies the uploaded Worker build."
+  ]
+}

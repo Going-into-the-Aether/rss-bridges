@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### 2026-10-12
+
+Relates to Going-into-the-Aether/UAH#2644.
+
+- Added a stable CalVer milestone policy while preserving package scaffolding and separate data snapshot publications.
+- Added uncached `/build-info.json` source and Cloudflare version identity without authentication, feed retrieval, or cache access.
+- Generate ignored build provenance through Wrangler's custom build, report local dirty sources truthfully, and reject Git failures or dirty release preparation.
+- Added provenance and endpoint tests plus release evidence, inspection, and recovery instructions.
+
 ### 2026-08-30
 
 - Routed unattended snapshot commits through an explicit caller-supplied signing wrapper so scheduled publication does not depend on an interactive signing agent.
