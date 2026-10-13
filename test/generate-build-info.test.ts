@@ -5,6 +5,7 @@ import {
   mkdtempSync,
   mkdirSync,
   readFileSync,
+  utimesSync,
   writeFileSync,
   rmSync,
 } from "node:fs";
@@ -29,9 +30,10 @@ describe("build provenance generation", () => {
     status = "";
     tags = "";
     vi.mocked(execFileSync).mockImplementation((_file, args) => {
-      switch (args?.[3]) {
+      switch (args?.[9]) {
         case "rev-parse":
-          return args?.[4] === "--show-toplevel" ? root : sha;
+          return args?.[10] === "--show-toplevel" ? root : sha;
+        case "ls-tree":
         case "ls-files":
           return "";
         case "status":
@@ -64,7 +66,20 @@ describe("build provenance generation", () => {
     expect(readFileSync(join(root, "generated/build-info.ts"), "utf8")).toContain(sha);
     expect(execFileSync).toHaveBeenCalledWith(
       "git",
-      ["--no-optional-locks", "-c", "core.fileMode=true", "tag", "--points-at", "HEAD"],
+      [
+        "--no-optional-locks",
+        "-c",
+        "core.fileMode=true",
+        "-c",
+        "core.fsmonitor=false",
+        "-c",
+        "core.trustctime=true",
+        "-c",
+        "core.checkstat=default",
+        "tag",
+        "--points-at",
+        "HEAD",
+      ],
       expect.objectContaining({ cwd: root }),
     );
     expect(execFileSync).toHaveBeenCalledWith(
@@ -73,6 +88,12 @@ describe("build provenance generation", () => {
         "--no-optional-locks",
         "-c",
         "core.fileMode=true",
+        "-c",
+        "core.fsmonitor=false",
+        "-c",
+        "core.trustctime=true",
+        "-c",
+        "core.checkstat=default",
         "status",
         "--porcelain",
         "--untracked-files=all",
@@ -118,12 +139,12 @@ describe("build provenance generation", () => {
     expect(() => collectBuildInfo(root)).toThrow("Multiple CalVer tags");
   });
 
-  it.each(["rev-parse", "status", "tag", "ls-files"])(
+  it.each(["rev-parse", "status", "tag", "ls-files", "ls-tree"])(
     "fails closed on Git %s failure",
     (command) => {
       vi.mocked(execFileSync).mockImplementation((_file, args) => {
-        if (args?.[3] === command) throw new Error("private path must not leak");
-        return args?.[3] === "rev-parse" ? (args?.[4] === "--show-toplevel" ? root : sha) : "";
+        if (args?.[9] === command) throw new Error("private path must not leak");
+        return args?.[9] === "rev-parse" ? (args?.[10] === "--show-toplevel" ? root : sha) : "";
       });
       expect(() => generateBuildInfo(root)).toThrow(`Git ${command} failed`);
       expect(existsSync(join(root, "generated/build-info.ts"))).toBe(false);
@@ -133,6 +154,53 @@ describe("build provenance generation", () => {
   it("rejects short SHAs", () => {
     vi.mocked(execFileSync).mockReturnValueOnce(root).mockReturnValue("abcdef0");
     expect(() => collectBuildInfo(root)).toThrow("40-character");
+  });
+
+  it("rejects persistent content hidden by a stale Git stat cache", () => {
+    const git = (args: string[]) => {
+      const result = spawnSync("git", args, {
+        cwd: root,
+        encoding: "utf8",
+        env: Object.fromEntries(
+          Object.entries(process.env).filter(([key]) => !key.startsWith("GIT_")),
+        ),
+      });
+      expect(result.status, result.stderr).toBe(0);
+      return result.stdout.trim();
+    };
+    git(["init", "-q"]);
+    mkdirSync(join(root, "scripts"));
+    const script = join(root, "scripts/generate-build-info.ts");
+    copyFileSync("scripts/generate-build-info.ts", script);
+    writeFileSync(join(root, ".gitignore"), "generated/\n");
+    const target = join(root, "cached.txt");
+    writeFileSync(target, "original");
+    utimesSync(target, 1000000000, 1000000000);
+    git(["add", "."]);
+    git([
+      "-c",
+      "user.name=Fixture",
+      "-c",
+      "user.email=fixture@example.invalid",
+      "-c",
+      "commit.gpgsign=false",
+      "-c",
+      "core.hooksPath=/dev/null",
+      "commit",
+      "-qm",
+      "fixture",
+    ]);
+    git(["config", "core.trustctime", "false"]);
+    writeFileSync(target, "modified");
+    utimesSync(target, 1000000000, 1000000000);
+    expect(git(["status", "--porcelain"])).toBe("");
+    const result = spawnSync(process.execPath, [script, "--strict"], {
+      cwd: root,
+      encoding: "utf8",
+    });
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("clean source");
+    expect(existsSync(join(root, "generated/build-info.ts"))).toBe(false);
   });
 
   it("refuses identity from an enclosing repository", () => {
@@ -191,8 +259,8 @@ describe("moving source and hidden index flags", () => {
   it("rejects a changed HEAD instead of emitting stale provenance", () => {
     let heads = 0;
     vi.mocked(execFileSync).mockImplementation((_file, args) => {
-      if (args?.[4] === "--show-toplevel") return process.cwd();
-      if (args?.[3] === "rev-parse") return ++heads === 1 ? "a".repeat(40) : "b".repeat(40);
+      if (args?.[10] === "--show-toplevel") return process.cwd();
+      if (args?.[9] === "rev-parse") return ++heads === 1 ? "a".repeat(40) : "b".repeat(40);
       return "";
     });
     expect(() => collectBuildInfo(".")).toThrow("HEAD changed");
@@ -202,9 +270,9 @@ describe("moving source and hidden index flags", () => {
     "refuses hidden index flag %s in strict mode",
     (flags) => {
       vi.mocked(execFileSync).mockImplementation((_file, args) => {
-        if (args?.[4] === "--show-toplevel") return process.cwd();
-        if (args?.[3] === "rev-parse") return "a".repeat(40);
-        if (args?.[3] === "ls-files") return flags;
+        if (args?.[10] === "--show-toplevel") return process.cwd();
+        if (args?.[9] === "rev-parse") return "a".repeat(40);
+        if (args?.[9] === "ls-files") return flags;
         return "";
       });
       expect(() => collectBuildInfo(".", true)).toThrow("clean source");

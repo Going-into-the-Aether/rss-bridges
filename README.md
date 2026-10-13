@@ -220,3 +220,7 @@ The script uses a caller-supplied commit wrapper to create and verify signed sna
 ## Security
 
 See [SECURITY.md](SECURITY.md) for reporting vulnerabilities. Never commit API tokens, `.dev.vars`, `.env` files, or generated local-agent context.
+
+Tracked bytes and modes are compared to stored Git blobs independently of stat
+caches, and fsmonitor hooks are disabled. Filter-transformed checkouts and
+unsupported tracked types cannot earn clean byte evidence.

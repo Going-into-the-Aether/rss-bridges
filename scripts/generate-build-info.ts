@@ -1,5 +1,13 @@
+import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { lstatSync, mkdirSync, realpathSync, writeFileSync } from "node:fs";
+import {
+  lstatSync,
+  mkdirSync,
+  readFileSync,
+  readlinkSync,
+  realpathSync,
+  writeFileSync,
+} from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL, URL } from "node:url";
 import type { BuildInfo } from "../src/build-info";
@@ -8,20 +16,64 @@ const projectRoot = fileURLToPath(new URL("..", import.meta.url));
 
 function git(root: string, args: string[]): string {
   try {
-    return execFileSync("git", ["--no-optional-locks", "-c", "core.fileMode=true", ...args], {
-      cwd: root,
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "pipe"],
-      env: {
-        ...Object.fromEntries(
-          Object.entries(process.env).filter(([key]) => !key.startsWith("GIT_")),
-        ),
-        GIT_NO_REPLACE_OBJECTS: "1",
+    return execFileSync(
+      "git",
+      [
+        "--no-optional-locks",
+        "-c",
+        "core.fileMode=true",
+        "-c",
+        "core.fsmonitor=false",
+        "-c",
+        "core.trustctime=true",
+        "-c",
+        "core.checkstat=default",
+        ...args,
+      ],
+      {
+        cwd: root,
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "pipe"],
+        env: {
+          ...Object.fromEntries(
+            Object.entries(process.env).filter(([key]) => !key.startsWith("GIT_")),
+          ),
+          GIT_NO_REPLACE_OBJECTS: "1",
+        },
       },
-    }).trim();
+    ).trim();
   } catch {
     throw new Error(`Git ${args[0]} failed; build provenance was not generated.`);
   }
+}
+
+function trackedBytesMatch(root: string, commit: string): boolean {
+  const tree = git(root, ["ls-tree", "-r", "-z", "--full-tree", commit]);
+  if (tree.includes("\uFFFD")) throw new Error("Ambiguous Git filename encoding.");
+  for (const entry of tree.split("\0")) {
+    if (!entry) continue;
+    const delimiter = entry.indexOf("\t");
+    if (delimiter < 0) throw new Error("Malformed Git tree record.");
+    const [mode, kind, expected] = entry.slice(0, delimiter).split(" ");
+    const target = resolve(root, entry.slice(delimiter + 1));
+    const current = lstatSync(target, { throwIfNoEntry: false });
+    if (!current) return false;
+    let content: Buffer;
+    if (mode === "120000" && current.isSymbolicLink()) {
+      content = readlinkSync(target, { encoding: "buffer" });
+    } else if ((mode === "100644" || mode === "100755") && current.isFile()) {
+      if (Boolean(current.mode & 0o100) !== (mode === "100755")) return false;
+      content = readFileSync(target);
+    } else {
+      return false;
+    }
+    const actual = createHash("sha1")
+      .update(`blob ${content.length}\0`)
+      .update(content)
+      .digest("hex");
+    if (kind !== "blob" || actual !== expected) return false;
+  }
+  return true;
 }
 
 export function collectBuildInfo(root: string, strict = false): BuildInfo {
@@ -36,7 +88,9 @@ export function collectBuildInfo(root: string, strict = false): BuildInfo {
     .split("\0")
     .some((entry) => entry !== "" && (entry[0] === "S" || entry[0] !== entry[0].toUpperCase()));
   const sourceDirty =
-    hidden || git(root, ["status", "--porcelain", "--untracked-files=all"]) !== "";
+    hidden ||
+    git(root, ["status", "--porcelain", "--untracked-files=all"]) !== "" ||
+    !trackedBytesMatch(root, sourceCommit);
   const tags = git(root, ["tag", "--points-at", "HEAD"])
     .split("\n")
     .filter((tag) => /^v[1-9]\d{3}\.(?:[1-9]|1[0-2])\.[1-9]\d*$/.test(tag));
