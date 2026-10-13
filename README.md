@@ -127,7 +127,10 @@ or cache access. It returns `Cache-Control: no-store` and these fields:
 
 - `schema_version`: 1.
 - `source_commit`: full 40-character source SHA.
-- `source_dirty`: whether tracked or untracked source changes were present.
+- `source_dirty`: whether tracked or nonignored untracked source changes were present.
+  Ignored files and installed dependencies are outside this Git source check.
+  This is a source observation, not an atomic snapshot of a concurrently edited
+  workspace; release builds require an unchanged checkout and fresh dependencies.
 - `built_at`: UTC generation time, not deployment time.
 - `build_id`: the full source SHA. Rebuilds of the same source share this ID.
 - `release_version`: CalVer without `v`, only when clean HEAD has exactly one

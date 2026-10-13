@@ -21,7 +21,7 @@ describe("build provenance generation", () => {
     status = "";
     tags = "";
     vi.mocked(execFileSync).mockImplementation((_file, args) => {
-      switch (args?.[0]) {
+      switch (args?.[3]) {
         case "rev-parse":
           return sha;
         case "ls-files":
@@ -56,12 +56,19 @@ describe("build provenance generation", () => {
     expect(readFileSync(join(root, "generated/build-info.ts"), "utf8")).toContain(sha);
     expect(execFileSync).toHaveBeenCalledWith(
       "git",
-      ["tag", "--points-at", "HEAD"],
+      ["--no-optional-locks", "-c", "core.fileMode=true", "tag", "--points-at", "HEAD"],
       expect.objectContaining({ cwd: root }),
     );
     expect(execFileSync).toHaveBeenCalledWith(
       "git",
-      ["status", "--porcelain", "--untracked-files=all"],
+      [
+        "--no-optional-locks",
+        "-c",
+        "core.fileMode=true",
+        "status",
+        "--porcelain",
+        "--untracked-files=all",
+      ],
       expect.anything(),
     );
   });
@@ -107,8 +114,8 @@ describe("build provenance generation", () => {
     "fails closed on Git %s failure",
     (command) => {
       vi.mocked(execFileSync).mockImplementation((_file, args) => {
-        if (args?.[0] === command) throw new Error("private path must not leak");
-        return args?.[0] === "rev-parse" ? sha : "";
+        if (args?.[3] === command) throw new Error("private path must not leak");
+        return args?.[3] === "rev-parse" ? sha : "";
       });
       expect(() => generateBuildInfo(root)).toThrow(`Git ${command} failed`);
       expect(existsSync(join(root, "generated/build-info.ts"))).toBe(false);
@@ -135,7 +142,7 @@ describe("moving source and hidden index flags", () => {
   it("rejects a changed HEAD instead of emitting stale provenance", () => {
     let heads = 0;
     vi.mocked(execFileSync).mockImplementation((_file, args) => {
-      if (args?.[0] === "rev-parse") return ++heads === 1 ? "a".repeat(40) : "b".repeat(40);
+      if (args?.[3] === "rev-parse") return ++heads === 1 ? "a".repeat(40) : "b".repeat(40);
       return "";
     });
     expect(() => collectBuildInfo(".")).toThrow("HEAD changed");
@@ -145,8 +152,8 @@ describe("moving source and hidden index flags", () => {
     "refuses hidden index flag %s in strict mode",
     (flags) => {
       vi.mocked(execFileSync).mockImplementation((_file, args) => {
-        if (args?.[0] === "rev-parse") return "a".repeat(40);
-        if (args?.[0] === "ls-files") return flags;
+        if (args?.[3] === "rev-parse") return "a".repeat(40);
+        if (args?.[3] === "ls-files") return flags;
         return "";
       });
       expect(() => collectBuildInfo(".", true)).toThrow("clean source");

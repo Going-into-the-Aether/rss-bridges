@@ -8,7 +8,7 @@ const projectRoot = fileURLToPath(new URL("..", import.meta.url));
 
 function git(root: string, args: string[]): string {
   try {
-    return execFileSync("git", args, {
+    return execFileSync("git", ["--no-optional-locks", "-c", "core.fileMode=true", ...args], {
       cwd: root,
       encoding: "utf8",
       stdio: ["ignore", "pipe", "pipe"],
@@ -52,6 +52,10 @@ export function collectBuildInfo(root: string, strict = false): BuildInfo {
 export function generateBuildInfo(root = projectRoot, strict = false): BuildInfo {
   const info = collectBuildInfo(root, strict);
   const output = resolve(root, "generated/build-info.ts");
+  const directory = lstatSync(dirname(output), { throwIfNoEntry: false });
+  if (directory && (!directory.isDirectory() || directory.isSymbolicLink())) {
+    throw new Error("Refusing linked build metadata directory.");
+  }
   const existing = lstatSync(output, { throwIfNoEntry: false });
   if (existing && (!existing.isFile() || existing.nlink > 1)) {
     throw new Error("Refusing to overwrite linked build metadata.");
