@@ -12,9 +12,12 @@ function git(root: string, args: string[]): string {
       cwd: root,
       encoding: "utf8",
       stdio: ["ignore", "pipe", "pipe"],
-      env: Object.fromEntries(
-        Object.entries(process.env).filter(([key]) => !key.startsWith("GIT_")),
-      ),
+      env: {
+        ...Object.fromEntries(
+          Object.entries(process.env).filter(([key]) => !key.startsWith("GIT_")),
+        ),
+        GIT_NO_REPLACE_OBJECTS: "1",
+      },
     }).trim();
   } catch {
     throw new Error(`Git ${args[0]} failed; build provenance was not generated.`);
