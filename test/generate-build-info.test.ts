@@ -6,6 +6,8 @@ import {
   mkdtempSync,
   mkdirSync,
   readFileSync,
+  renameSync,
+  symlinkSync,
   utimesSync,
   writeFileSync,
   rmSync,
@@ -207,7 +209,7 @@ describe("build provenance generation", () => {
     expect(existsSync(join(root, "generated/build-info.ts"))).toBe(false);
   });
 
-  it.each(["staged-only", "executable", "deleted", "filter"])(
+  it.each(["staged-only", "executable", "deleted", "filter", "symlink-parent", "case-name"])(
     "checks real Git %s state",
     (state) => {
       const git = (args: string[]) => {
@@ -226,8 +228,9 @@ describe("build provenance generation", () => {
       const script = join(root, "scripts/generate-build-info.ts");
       copyFileSync("scripts/generate-build-info.ts", script);
       writeFileSync(join(root, ".gitignore"), "generated/\n");
-      writeFileSync(join(root, ".gitattributes"), "source.txt filter=probe\n");
-      const target = join(root, "source.txt");
+      writeFileSync(join(root, ".gitattributes"), "nested/source.txt filter=probe\n");
+      mkdirSync(join(root, "nested"));
+      const target = join(root, "nested/source.txt");
       writeFileSync(target, "original");
       git(["add", "."]);
       git([
@@ -245,11 +248,16 @@ describe("build provenance generation", () => {
       ]);
       if (state === "staged-only") {
         writeFileSync(target, "modified");
-        git(["add", "source.txt"]);
+        git(["add", "nested/source.txt"]);
         writeFileSync(target, "original");
       } else if (state === "executable") chmodSync(target, 0o755);
       else if (state === "deleted") rmSync(target);
-      else git(["config", "filter.probe.clean", "touch .git/filter-ran; cat"]);
+      else if (state === "case-name") renameSync(target, join(root, "nested/SOURCE.TXT"));
+      else if (state === "symlink-parent") {
+        renameSync(join(root, "nested"), join(root, "external"));
+        symlinkSync(join(root, "external"), join(root, "nested"), "dir");
+        writeFileSync(join(root, ".git/info/exclude"), "nested\nexternal\n");
+      } else git(["config", "filter.probe.clean", "touch .git/filter-ran; cat"]);
       const result = spawnSync(process.execPath, [script, "--strict"], {
         cwd: root,
         encoding: "utf8",

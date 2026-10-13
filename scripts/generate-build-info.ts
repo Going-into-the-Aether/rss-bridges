@@ -3,6 +3,7 @@ import { execFileSync } from "node:child_process";
 import {
   lstatSync,
   mkdirSync,
+  readdirSync,
   readFileSync,
   readlinkSync,
   realpathSync,
@@ -56,7 +57,17 @@ function trackedBytesMatch(root: string, commit: string): boolean {
     const delimiter = entry.indexOf("\t");
     if (delimiter < 0) throw new Error("Malformed Git tree record.");
     const [mode, kind, expected] = entry.slice(0, delimiter).split(" ");
-    const target = resolve(root, entry.slice(delimiter + 1));
+    const parts = entry.slice(delimiter + 1).split("/");
+    let parent = root;
+    for (const [position, part] of parts.entries()) {
+      if (!readdirSync(parent).includes(part)) return false;
+      parent = resolve(parent, part);
+      if (position < parts.length - 1) {
+        const directory = lstatSync(parent);
+        if (directory.isSymbolicLink() || !directory.isDirectory()) return false;
+      }
+    }
+    const target = parent;
     const current = lstatSync(target, { throwIfNoEntry: false });
     if (!current) return false;
     let content: Buffer;
