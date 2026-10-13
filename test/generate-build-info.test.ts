@@ -34,10 +34,9 @@ describe("build provenance generation", () => {
         case "rev-parse":
           return args?.[10] === "--show-toplevel" ? root : sha;
         case "ls-tree":
-        case "ls-files":
           return "";
-        case "status":
-          return status;
+        case "ls-files":
+          return args?.includes("--others") ? status : "";
         case "tag":
           return tags;
         default:
@@ -77,6 +76,7 @@ describe("build provenance generation", () => {
         "-c",
         "core.checkstat=default",
         "tag",
+        "--no-column",
         "--points-at",
         "HEAD",
       ],
@@ -94,9 +94,10 @@ describe("build provenance generation", () => {
         "core.trustctime=true",
         "-c",
         "core.checkstat=default",
-        "status",
-        "--porcelain",
-        "--untracked-files=all",
+        "ls-files",
+        "--others",
+        "--exclude-standard",
+        "-z",
       ],
       expect.anything(),
     );
@@ -139,14 +140,17 @@ describe("build provenance generation", () => {
     expect(() => collectBuildInfo(root)).toThrow("Multiple CalVer tags");
   });
 
-  it.each(["rev-parse", "status", "tag", "ls-files", "ls-tree"])(
+  it.each(["rev-parse", "untracked", "tag", "ls-files", "ls-tree"])(
     "fails closed on Git %s failure",
     (command) => {
       vi.mocked(execFileSync).mockImplementation((_file, args) => {
-        if (args?.[9] === command) throw new Error("private path must not leak");
+        if (args?.[9] === command || (command === "untracked" && args?.includes("--others")))
+          throw new Error("private path must not leak");
         return args?.[9] === "rev-parse" ? (args?.[10] === "--show-toplevel" ? root : sha) : "";
       });
-      expect(() => generateBuildInfo(root)).toThrow(`Git ${command} failed`);
+      expect(() => generateBuildInfo(root)).toThrow(
+        `Git ${command === "untracked" ? "ls-files" : command} failed`,
+      );
       expect(existsSync(join(root, "generated/build-info.ts"))).toBe(false);
     },
   );

@@ -76,6 +76,28 @@ function trackedBytesMatch(root: string, commit: string): boolean {
   return true;
 }
 
+function indexMatchesHead(root: string, commit: string): boolean {
+  const expected = new Map<string, string>();
+  for (const entry of git(root, ["ls-tree", "-r", "-z", "--full-tree", commit]).split("\0")) {
+    if (!entry) continue;
+    const delimiter = entry.indexOf("\t");
+    const [mode, , oid] = entry.slice(0, delimiter).split(" ");
+    expected.set(entry.slice(delimiter + 1), `${mode} ${oid}`);
+  }
+  const actual = new Map<string, string>();
+  for (const entry of git(root, ["ls-files", "--stage", "-z"]).split("\0")) {
+    if (!entry) continue;
+    const delimiter = entry.indexOf("\t");
+    const [mode, oid, stage] = entry.slice(0, delimiter).split(" ");
+    if (stage !== "0") return false;
+    actual.set(entry.slice(delimiter + 1), `${mode} ${oid}`);
+  }
+  return (
+    actual.size === expected.size &&
+    [...expected].every(([path, value]) => actual.get(path) === value)
+  );
+}
+
 export function collectBuildInfo(root: string, strict = false): BuildInfo {
   if (realpathSync(git(root, ["rev-parse", "--show-toplevel"])) !== realpathSync(root)) {
     throw new Error("Expected the project repository root.");
@@ -89,9 +111,10 @@ export function collectBuildInfo(root: string, strict = false): BuildInfo {
     .some((entry) => entry !== "" && (entry[0] === "S" || entry[0] !== entry[0].toUpperCase()));
   const sourceDirty =
     hidden ||
-    git(root, ["status", "--porcelain", "--untracked-files=all"]) !== "" ||
+    git(root, ["ls-files", "--others", "--exclude-standard", "-z"]) !== "" ||
+    !indexMatchesHead(root, sourceCommit) ||
     !trackedBytesMatch(root, sourceCommit);
-  const tags = git(root, ["tag", "--points-at", "HEAD"])
+  const tags = git(root, ["tag", "--no-column", "--points-at", "HEAD"])
     .split("\n")
     .filter((tag) => /^v[1-9]\d{3}\.(?:[1-9]|1[0-2])\.[1-9]\d*$/.test(tag));
   if (tags.length > 1) throw new Error("Multiple CalVer tags identify HEAD; resolve ambiguity.");
