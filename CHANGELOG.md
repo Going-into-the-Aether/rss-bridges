@@ -4,6 +4,9 @@
 
 ### 2026-10-18
 
+- Resolved visible Tidings bylines for split italic signatures and CBMA role signatures, so recent items no longer fall back to the publication author and the feed health check reports ok.
+- Added verified exact-URL bylines for four items signed only with a closing italic name, and for two collective pages. A closing italic line alone is never taken as an author, because it cannot be told apart from a publication title.
+- Let an empty author override mark a reviewed page with no byline as exempt from author health failures.
 - Made the snapshot publisher remove its data worktree on every exit. Under errexit, zsh skips the EXIT trap when a function fails, so a rejected push had left the worktree registered and blocked later runs.
 - Report cleanup failures to stderr, run cleanup on TERM, INT and HUP, and remove a stale snapshot worktree left by an earlier run before reusing the data branch.
 

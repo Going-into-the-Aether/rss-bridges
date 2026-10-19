@@ -23,6 +23,7 @@
   "https://tidings.org/articles/fellow/": ["Paul Zilmer"],
   "https://tidings.org/articles/from-a-seed-to-a-harvest/": ["Bob Fox"],
   "https://tidings.org/articles/guyana-expo-preaching-campaign/": ["Dawne Samuels", "Mark Carr"],
+  "https://tidings.org/articles/held-in-his-hands-book-excerpt/": ["Anna Tikvah"],
   "https://tidings.org/articles/hidden-treasures-in-the-titles-of-the-psalms-part-3/": [
     "Leen Ritmeyer"
   ],
@@ -40,6 +41,7 @@
     "Barbara Booker",
     "Krzysztof Biliński"
   ],
+  "https://tidings.org/articles/letters-to-the-editor-september-2026/": ["Various readers"],
   "https://tidings.org/articles/letters-to-the-editor/": ["A Brother"],
   "https://tidings.org/articles/listening/": ["Jason Hensley"],
   "https://tidings.org/articles/making-connections-in-jamaica/": ["Nathan Giordano"],
@@ -61,6 +63,7 @@
   "https://tidings.org/articles/the-characteristics-of-babel/": ["Jason Hensley"],
   "https://tidings.org/articles/the-christians/": ["Jason Hensley"],
   "https://tidings.org/articles/the-empires-of-babylon/": ["Jason Hensley"],
+  "https://tidings.org/articles/the-faith-of-jesus/": ["Jason Hensley"],
   "https://tidings.org/articles/the-falling-asleep-of-bro-john-bilello/": ["Alan Markwith"],
   "https://tidings.org/articles/the-gospel-of-growth/": ["Dave Jennings"],
   "https://tidings.org/articles/the-next-revolt/": ["Jason Hensley"],
@@ -86,9 +89,12 @@
   "https://tidings.org/articles/written-beforehand-why-old-scrolls-matter/": ["Jason Hensley"],
   "https://tidings.org/articles/yanyo-org/": ["YANYO Christadelphian Focus Group"],
   "https://tidings.org/magazine/building-relationships-gods-way-part-3/": ["David Fraser"],
+  "https://tidings.org/magazine/fear-and-belief/": ["Jason Hensley"],
   "https://tidings.org/magazine/fellowship-in-oaxaca/": ["David Collister"],
+  "https://tidings.org/magazine/held-in-his-hands-book-excerpt-chapter-2/": ["Anna Tikvah"],
   "https://tidings.org/magazine/held-in-his-hands-book-excerpt/": ["Anna Tikvah"],
   "https://tidings.org/magazine/in-memory-of-peter-hemingray/": ["Joe Hill"],
   "https://tidings.org/magazine/letters-to-the-editor-september-2026/": ["Various readers"],
-  "https://tidings.org/magazine/the-faith-of-jesus/": ["Jason Hensley"]
+  "https://tidings.org/magazine/the-faith-of-jesus/": ["Jason Hensley"],
+  "https://tidings.org/magazine/truth-corps/": ["Truth Corps"]
 }
