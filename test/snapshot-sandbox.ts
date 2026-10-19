@@ -11,8 +11,23 @@ export interface SnapshotSandbox {
   git(...args: string[]): string;
 }
 
+// Ignore the caller's Git config, so signing, hooks and other operator
+// settings cannot fail or block the fixture commits. That includes config
+// injected through the environment (GIT_CONFIG_COUNT/KEY_n/VALUE_n and
+// GIT_CONFIG_PARAMETERS), which overrides both global and system files.
+const isolatedGitEnv: NodeJS.ProcessEnv = Object.fromEntries(
+  Object.entries(process.env).filter(
+    ([key]) => !/^GIT_CONFIG_(COUNT|KEY_\d+|VALUE_\d+|PARAMETERS)$/.test(key),
+  ),
+);
+Object.assign(isolatedGitEnv, {
+  GIT_CONFIG_GLOBAL: "/dev/null",
+  GIT_CONFIG_NOSYSTEM: "1",
+  GIT_TERMINAL_PROMPT: "0",
+});
+
 function sh(cwd: string, cmd: string, args: string[]): string {
-  const result = spawnSync(cmd, args, { cwd, encoding: "utf8" });
+  const result = spawnSync(cmd, args, { cwd, encoding: "utf8", env: isolatedGitEnv });
   if (result.status !== 0) throw new Error(`${cmd} ${args.join(" ")}: ${result.stderr}`);
   return result.stdout;
 }
@@ -73,7 +88,7 @@ export function createSnapshotSandbox(): SnapshotSandbox {
         cwd: repo,
         encoding: "utf8",
         env: {
-          ...process.env,
+          ...isolatedGitEnv,
           TMPDIR: tmp,
           RSS_BRIDGES_GIT_WRAPPER: pushFails ? badGit : okGit,
           RSS_BRIDGES_COMMIT_WRAPPER: commit,
