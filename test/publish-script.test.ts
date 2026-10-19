@@ -1,7 +1,10 @@
 import { readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { execPath } from "node:process";
-import { describe, expect, it } from "vitest";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { afterEach, describe, expect, it } from "vitest";
+import { createSnapshotSandbox, type SnapshotSandbox } from "./snapshot-sandbox";
 
 const script = readFileSync("scripts/publish-christadelphian-snapshot.sh", "utf8");
 const launchAgent = readFileSync("ops/launchd/org.rss-bridges.snapshot.plist", "utf8");
@@ -55,5 +58,49 @@ describe("snapshot publisher transport boundaries", () => {
     expect(script).not.toContain(
       'git -C "$data_worktree" commit -S -m "data: refresh Christadelphian snapshot"',
     );
+  });
+});
+
+describe("snapshot publisher worktree cleanup", () => {
+  let sandbox: SnapshotSandbox | undefined;
+  afterEach(() => {
+    if (sandbox) rmSync(sandbox.root, { recursive: true, force: true });
+    sandbox = undefined;
+  });
+
+  const snapshotWorktrees = (box: SnapshotSandbox) =>
+    box
+      .git("worktree", "list", "--porcelain")
+      .split("\n")
+      .filter((line) => line.includes("rss-bridges-snapshot."));
+
+  it("leaves no registered worktree when the push fails", () => {
+    sandbox = createSnapshotSandbox();
+    const result = sandbox.run(true);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("push rejected");
+    expect(snapshotWorktrees(sandbox)).toEqual([]);
+  });
+
+  it("leaves no registered worktree after a successful push", () => {
+    sandbox = createSnapshotSandbox();
+    const result = sandbox.run(false);
+    expect(result.status).toBe(0);
+    expect(snapshotWorktrees(sandbox)).toEqual([]);
+  });
+
+  it("removes a stale worktree from an earlier run before the next run", () => {
+    sandbox = createSnapshotSandbox();
+    const stale = join(sandbox.tmp, "rss-bridges-snapshot.STALE1");
+    mkdirSync(stale);
+    writeFileSync(join(stale, "the-christadelphian-posts.json"), "{}");
+    sandbox.git("branch", "data", "refs/remotes/origin/data");
+    sandbox.git("worktree", "add", join(stale, "data"), "data");
+    expect(snapshotWorktrees(sandbox).length).toBeGreaterThan(0);
+
+    const result = sandbox.run(false);
+    expect({ status: result.status, stderr: result.stderr }).toMatchObject({ status: 0 });
+    expect(result.stderr).toContain("Removing stale snapshot worktree");
+    expect(snapshotWorktrees(sandbox)).toEqual([]);
   });
 });

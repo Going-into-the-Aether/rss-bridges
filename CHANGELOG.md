@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### 2026-10-18
+
+- Made the snapshot publisher remove its data worktree on every exit. Under errexit, zsh skips the EXIT trap when a function fails, so a rejected push had left the worktree registered and blocked later runs.
+- Report cleanup failures to stderr, run cleanup on TERM, INT and HUP, and remove a stale snapshot worktree left by an earlier run before reusing the data branch.
+
 ### 2026-10-12
 
 Relates to Going-into-the-Aether/UAH#2644.
