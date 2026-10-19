@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### 2026-10-18
+
+- Resolved visible Tidings bylines for split italic signatures, CBMA role signatures, and standalone italic closing names, so recent items no longer fall back to the publication author and the feed health check reports ok.
+- Added exact-URL credits for two collective pages, and let an empty author override mark a reviewed page with no byline as exempt from author health failures.
+
 ### 2026-10-12
 
 Relates to Going-into-the-Aether/UAH#2644.
