@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { execPath } from "node:process";
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { createSnapshotSandbox, type SnapshotSandbox } from "./snapshot-sandbox";
@@ -102,5 +102,55 @@ describe("snapshot publisher worktree cleanup", () => {
     expect({ status: result.status, stderr: result.stderr }).toMatchObject({ status: 0 });
     expect(result.stderr).toContain("Removing stale snapshot worktree");
     expect(snapshotWorktrees(sandbox)).toEqual([]);
+    expect(existsSync(stale)).toBe(false);
+  });
+
+  it.each([
+    ["outside TMPDIR with nested data", false, "rss-bridges-snapshot.something/extra"],
+    ["outside TMPDIR with an exact name", false, "rss-bridges-snapshot.Ab12Z9"],
+    ["nested data inside TMPDIR", true, "rss-bridges-snapshot.Ab12Z9/extra"],
+    ["a short suffix", true, "rss-bridges-snapshot.A1234"],
+    ["a long suffix", true, "rss-bridges-snapshot.A123456"],
+    ["a non-alphanumeric suffix", true, "rss-bridges-snapshot.A1234_"],
+  ])("preserves a data worktree with %s", (_label, insideTmp, relativeParent) => {
+    sandbox = createSnapshotSandbox();
+    const parent = join(insideTmp ? sandbox.tmp : sandbox.root, relativeParent);
+    const decoy = join(parent, "data");
+    const extra = join(parent, "keep.txt");
+    mkdirSync(parent, { recursive: true });
+    writeFileSync(extra, "unrelated parent file");
+    sandbox.git("branch", "data", "refs/remotes/origin/data");
+    sandbox.git("worktree", "add", decoy, "data");
+    const uncommitted = join(decoy, "package.json");
+    writeFileSync(uncommitted, "uncommitted work");
+
+    // The decoy owns data, so Git must reject the publisher's branch reset.
+    const result = sandbox.run(false);
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).not.toContain("Removing stale snapshot worktree");
+    expect(sandbox.git("worktree", "list", "--porcelain")).toContain(
+      `worktree ${realpathSync(decoy)}\n`,
+    );
+    expect(readFileSync(uncommitted, "utf8")).toBe("uncommitted work");
+    expect(readFileSync(extra, "utf8")).toBe("unrelated parent file");
+  });
+
+  it("preserves unknown files in a stale task directory and reports rmdir failure", () => {
+    sandbox = createSnapshotSandbox();
+    const stale = join(sandbox.tmp, "rss-bridges-snapshot.Ab12Z9");
+    mkdirSync(stale);
+    const snapshot = join(stale, "the-christadelphian-posts.json");
+    const extra = join(stale, "keep.txt");
+    writeFileSync(snapshot, "{}");
+    writeFileSync(extra, "unrelated file");
+    sandbox.git("branch", "data", "refs/remotes/origin/data");
+    sandbox.git("worktree", "add", join(stale, "data"), "data");
+
+    const result = sandbox.run(false);
+    expect({ status: result.status, stderr: result.stderr }).toMatchObject({ status: 0 });
+    expect(snapshotWorktrees(sandbox)).toEqual([]);
+    expect(existsSync(snapshot)).toBe(false);
+    expect(readFileSync(extra, "utf8")).toBe("unrelated file");
+    expect(result.stderr).toContain("Could not remove stale task directory");
   });
 });

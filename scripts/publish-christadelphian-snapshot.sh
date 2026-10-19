@@ -72,14 +72,16 @@ trap 'exit 130' INT
 trap 'exit 129' HUP
 
 # (Do not name a local "path": in zsh it is tied to PATH.)
-# Remove worktrees that an earlier run left behind. Only a worktree under a
-# rss-bridges-snapshot.* directory that holds the data branch is touched.
+# Remove only data worktrees in this run's resolved temp parent, with the
+# exact six-character alphanumeric task-directory suffix made by mktemp.
 remove_stale_snapshot_worktrees() {
   local line wt_path="" wt_branch="" stale
   local -a stale_paths
   for line in "${(@f)$(git -C "$repo_root" worktree list --porcelain)}" ""; do
     if [[ -z "$line" ]]; then
-      if [[ "$wt_branch" == "refs/heads/data" && "$wt_path" == */rss-bridges-snapshot.*/data && "$wt_path" != "$data_worktree" ]]; then
+      if [[ "$wt_branch" == "refs/heads/data" &&
+            "${wt_path:A}" == "${task_root:A:h}"/rss-bridges-snapshot.[A-Za-z0-9][A-Za-z0-9][A-Za-z0-9][A-Za-z0-9][A-Za-z0-9][A-Za-z0-9]/data &&
+            "${wt_path:A}" != "${data_worktree:A}" ]]; then
         stale_paths+=("$wt_path")
       fi
       wt_path="" wt_branch=""
@@ -91,8 +93,13 @@ remove_stale_snapshot_worktrees() {
   done
   for stale in "${stale_paths[@]}"; do
     print -u2 "Removing stale snapshot worktree: $stale"
-    git -C "$repo_root" worktree remove --force --force "$stale" || { rm -rf "$stale" && git -C "$repo_root" worktree prune; } || return $?
-    rm -rf "${stale:h}" || print -u2 "Could not delete stale task directory ${stale:h}"
+    git -C "$repo_root" worktree remove --force --force "$stale" || {
+      local exit_code=$?
+      print -u2 "Could not remove stale snapshot worktree $stale"
+      return $exit_code
+    }
+    rm -f "${stale:h}/the-christadelphian-posts.json" || print -u2 "Could not remove stale snapshot file ${stale:h}/the-christadelphian-posts.json"
+    rmdir "${stale:h}" || print -u2 "Could not remove stale task directory ${stale:h}"
   done
 }
 

@@ -1,4 +1,12 @@
-import { chmodSync, copyFileSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  copyFileSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -38,7 +46,10 @@ export function createSnapshotSandbox(): SnapshotSandbox {
   const remote = join(root, "remote.git");
   const repo = join(root, "repo");
   const tmp = join(root, "tmp");
-  mkdirSync(tmp);
+  const resolvedTmp = join(root, "resolved-tmp");
+  mkdirSync(resolvedTmp);
+  // Exercise TMPDIR aliases such as macOS /var versus Git's /private/var paths.
+  symlinkSync(resolvedTmp, tmp, "dir");
   mkdirSync(join(repo, "scripts"), { recursive: true });
   mkdirSync(join(repo, "node_modules/.bin"), { recursive: true });
   sh(root, "git", ["init", "-q", "--bare", remote]);
