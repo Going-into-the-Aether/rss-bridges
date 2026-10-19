@@ -105,28 +105,7 @@ export function extractAuthors(html: string): string[] {
     const beforeLocation = firstLine.replace(/,\s*$/, "").trim();
     return splitAuthorLine(beforeLocation);
   });
-  if (authors.length > 0) return unique(authors);
-
-  // Accept a short name in a wholly italic closing paragraph, without treating
-  // earlier quotations or inline book titles as signatures.
-  const closingParagraph = (paragraphBodies.at(-1) ?? "")
-    .replace(/<\/?span\b[^>]*>/gi, "")
-    .replace(/<(i|em)\b[^>]*>\s*<\/\1>/gi, "")
-    .trim();
-  const standalone = closingParagraph.match(/^<(i|em)\b[^>]*>([^<>]+)<\/\1>$/i);
-  if (!standalone) return [];
-  const name = stripHtml(standalone[2]);
-  if (
-    /^The /i.test(name) ||
-    /\b(?:Christadelphian|Christadelphians|Magazine|Mission|Ministry|Ministries|Bible|Committee|Fund|Trust|Association|Office|Press|Publications|School|Foundation|Society|Fellowship|Board|Council|Team|Staff)\b/i.test(
-      name,
-    )
-  ) {
-    return [];
-  }
-  return /^(?:\p{Lu}[\p{L}'’.-]*)(?:\s+(?:\p{Lu}[\p{L}'’.-]*|and|&)){1,5}$/u.test(name)
-    ? unique(splitAuthorLine(name))
-    : [];
+  return unique(authors);
 }
 
 function exclusiveAfter(inclusiveStart: string): string {

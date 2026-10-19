@@ -39,7 +39,15 @@ describe("Tidings author extraction", () => {
   // captured on 2026-10-18. The Fear and Belief byline comes from REST only.
   it.each(
     issue40Fixtures.filter(
-      (fixture) => !["truth-corps", "letters-to-the-editor-september-2026"].includes(fixture.slug),
+      (fixture) =>
+        ![
+          "truth-corps",
+          "letters-to-the-editor-september-2026",
+          "fear-and-belief",
+          "the-faith-of-jesus",
+          "held-in-his-hands-book-excerpt",
+          "held-in-his-hands-book-excerpt-chapter-2",
+        ].includes(fixture.slug),
     ),
   )("extracts the REST signature for $type/$slug", ({ content, authors }) => {
     expect(extractAuthors(content)).toEqual(authors);
@@ -52,31 +60,14 @@ describe("Tidings author extraction", () => {
     },
   );
 
-  it.each([
-    "<p><i>English Standard Version</i> is used throughout.</p>",
-    "<p><i>May we all be faithful.</i></p>",
-    "<p><i>Jesus Christ</i></p><p>The article continues here.</p>",
-    "<p><i>fm_dev</i></p>",
-    "<p><i>The Christadelphian Tidings</i></p>",
-    "<p><i>Editor: Joe Hill</i></p>",
-  ])("does not mistake prose or CMS metadata for a standalone signature: %s", (html) => {
-    expect(extractAuthors(html)).toEqual([]);
-  });
-
-  it.each([
-    "The Christadelphian",
-    "Bible Magazine",
-    "Christadelphian Bible Mission",
-    "The Christadelphian Tidings",
-  ])("rejects an organization or publication as a standalone signature: %s", (name) => {
-    expect(extractAuthors(`<p>Body text here.</p><p><em>${name}</em></p>`)).toEqual([]);
-  });
-
-  it("extracts a standalone italic author name", () => {
-    expect(extractAuthors("<p>Body text here.</p><p><em>Jason Hensley</em></p>")).toEqual([
-      "Jason Hensley",
-    ]);
-  });
+  it.each(["English Standard Version", "The Christadelphian", "Jason Hensley"])(
+    "does not infer an author from a closing italic paragraph alone: %s",
+    (name) => {
+      for (const tag of ["i", "em"]) {
+        expect(extractAuthors(`<p>Body.</p><p><${tag}>${name}</${tag}></p>`)).toEqual([]);
+      }
+    },
+  );
 
   it("extracts the displayed single author from the signature", () => {
     expect(
@@ -250,7 +241,7 @@ describe("Tidings source aggregation", () => {
     });
 
     // A reviewed exemption must not hide a byline added later.
-    records = [{ ...unsigned, content: { rendered: "<p><i>Anna Tikvah</i></p>" } }];
+    records = [{ ...unsigned, content: { rendered: "<div>By <b>Anna Tikvah</b></div>" } }];
     const signed = await buildTidingsFeed(options);
     expect(signed.items[0]).toMatchObject({
       authors: ["Anna Tikvah"],
