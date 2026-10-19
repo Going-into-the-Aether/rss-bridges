@@ -8,6 +8,7 @@ import {
   type WordPressRecord,
 } from "../src/adapters/tidings";
 import type { FeedItem } from "../src/types";
+import issue40Fixtures from "./fixtures/tidings-issue-40.json";
 
 function record(overrides: Partial<WordPressRecord> = {}): WordPressRecord {
   return {
@@ -34,6 +35,40 @@ function jsonPage(records: WordPressRecord[], totalPages = 1): Response {
 }
 
 describe("Tidings author extraction", () => {
+  // Minimal excerpts from .issue-40-fixtures/<type>--<slug>.{rest.json,page.html},
+  // captured on 2026-10-18. The Fear and Belief byline comes from REST only.
+  it.each(
+    issue40Fixtures.filter(
+      (fixture) =>
+        ![
+          "truth-corps",
+          "letters-to-the-editor-september-2026",
+          "fear-and-belief",
+          "the-faith-of-jesus",
+          "held-in-his-hands-book-excerpt",
+          "held-in-his-hands-book-excerpt-chapter-2",
+        ].includes(fixture.slug),
+    ),
+  )("extracts the REST signature for $type/$slug", ({ content, authors }) => {
+    expect(extractAuthors(content)).toEqual(authors);
+  });
+
+  it.each(issue40Fixtures.filter((fixture) => fixture.pageByline))(
+    "matches the visible page byline for $type/$slug",
+    ({ pageByline, authors }) => {
+      expect(extractAuthors(pageByline!)).toEqual(authors);
+    },
+  );
+
+  it.each(["English Standard Version", "The Christadelphian", "Jason Hensley"])(
+    "does not infer an author from a closing italic paragraph alone: %s",
+    (name) => {
+      for (const tag of ["i", "em"]) {
+        expect(extractAuthors(`<p>Body.</p><p><${tag}>${name}</${tag}></p>`)).toEqual([]);
+      }
+    },
+  );
+
   it("extracts the displayed single author from the signature", () => {
     expect(
       extractAuthors('<p class="p8"><i>Belinda Stone,<br />Riverwood Ecclesia, NSW</i></p>'),
@@ -111,6 +146,109 @@ describe("Tidings author extraction", () => {
 });
 
 describe("Tidings source aggregation", () => {
+  it("resolves all 12 issue #40 items without page requests at the default threshold", async () => {
+    const records = issue40Fixtures.map((fixture, index) =>
+      record({
+        id: index + 1,
+        type: fixture.type,
+        link: `https://tidings.org/${fixture.type}/${fixture.slug}/`,
+        content: { rendered: fixture.content },
+      }),
+    );
+    const fetcher = vi.fn(async (input: RequestInfo | URL) => {
+      const url = new URL(String(input));
+      const type = url.pathname.match(/^\/wp-json\/wp\/v2\/(magazine|articles)$/)?.[1];
+      if (!type) throw new Error(`Unexpected page request: ${url}`);
+      return jsonPage(records.filter((item) => item.type === type));
+    });
+    const result = await buildTidingsFeed({
+      mode: "rolling",
+      bootstrapAfter: "2025-01-01T00:00:00Z",
+      rollingLimit: 12,
+      fetcher: fetcher as typeof fetch,
+    });
+
+    expect(fetcher).toHaveBeenCalledTimes(2);
+    expect(result.items).toHaveLength(12);
+    for (const fixture of issue40Fixtures) {
+      expect(
+        result.items.find(
+          (item) => item.url === `https://tidings.org/${fixture.type}/${fixture.slug}/`,
+        ),
+      ).toMatchObject({
+        authors: fixture.authors,
+        usedFallbackAuthor: false,
+      });
+    }
+    expect(result.diagnostic).toMatchObject({
+      ok: true,
+      partial: false,
+      authorFallbacks: 0,
+      authorFallbackThreshold: 0,
+      authorFallbackExceeded: false,
+      unresolvedAuthorUrls: [],
+    });
+  });
+
+  it("keeps a reviewed no-byline fallback healthy without hiding other unresolved items", async () => {
+    const unsigned = record({
+      link: "https://TIDINGS.org/articles/reviewed-unsigned?utm_source=test",
+      content: { rendered: "<p>Article without a byline.</p>" },
+    });
+    const unknown = record({
+      id: 2,
+      link: "https://tidings.org/articles/unreviewed/",
+      content: unsigned.content,
+    });
+    let records = [unsigned];
+    const fetcher = vi.fn(async (input: RequestInfo | URL) => {
+      const url = new URL(String(input));
+      if (url.pathname.endsWith("/magazine")) return jsonPage([]);
+      if (url.pathname.endsWith("/articles")) return jsonPage(records);
+      throw new Error(`Unexpected page request: ${url}`);
+    });
+    const options = {
+      mode: "bootstrap" as const,
+      bootstrapAfter: "2025-01-01T00:00:00Z",
+      rollingLimit: 200,
+      pageFallbackLimit: 2,
+      authorOverrides: { "https://tidings.org/articles/reviewed-unsigned/": [] },
+      fetcher: fetcher as typeof fetch,
+    };
+    const reviewed = await buildTidingsFeed(options);
+    expect(reviewed.items[0]).toMatchObject({
+      authors: ["The Christadelphian Tidings"],
+      usedFallbackAuthor: true,
+    });
+    expect(reviewed.diagnostic).toMatchObject({
+      ok: true,
+      partial: false,
+      authorFallbacks: 0,
+      authorFallbackThreshold: 0,
+      unresolvedAuthorUrls: [],
+    });
+    expect(fetcher).toHaveBeenCalledTimes(2);
+
+    records = [unsigned, unknown];
+    const unreviewed = await buildTidingsFeed({ ...options, pageFallbackLimit: 0 });
+    expect(unreviewed.diagnostic).toMatchObject({
+      ok: false,
+      partial: true,
+      authorFallbacks: 1,
+      authorFallbackThreshold: 0,
+      authorFallbackExceeded: true,
+      unresolvedAuthorUrls: [unknown.link],
+    });
+
+    // A reviewed exemption must not hide a byline added later.
+    records = [{ ...unsigned, content: { rendered: "<div>By <b>Anna Tikvah</b></div>" } }];
+    const signed = await buildTidingsFeed(options);
+    expect(signed.items[0]).toMatchObject({
+      authors: ["Anna Tikvah"],
+      usedFallbackAuthor: false,
+    });
+  });
+
   it("paginates, merges both post types, and preserves metadata", async () => {
     const fetcher = vi.fn(async (input: RequestInfo | URL) => {
       const url = new URL(String(input));

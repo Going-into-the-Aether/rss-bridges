@@ -28,6 +28,7 @@ export interface TidingsOptions {
   pageFallbackLimit?: number;
   authorFallbackThreshold?: number;
   maxSourcePages?: number;
+  // An empty array records a reviewed absence of a byline, exempt from author health failures.
   authorOverrides?: Record<string, string[]>;
   fetcher?: typeof fetch;
   now?: () => Date;
@@ -78,7 +79,9 @@ export function extractAuthors(html: string): string[] {
   );
   if (explicit.length > 0) return unique(explicit);
 
-  const paragraphBodies = [...html.matchAll(/<p\b[^>]*>([\s\S]*?)<\/p>/gi)].map(
+  // Endnotes can follow the closing signature and contain italic book titles.
+  const withoutLists = html.replace(/<(ol|ul)\b[^>]*>[\s\S]*?<\/\1>/gi, "");
+  const paragraphBodies = [...withoutLists.matchAll(/<p\b[^>]*>([\s\S]*?)<\/p>/gi)].map(
     (match) => match[1],
   );
   const authors = paragraphBodies.slice(-6).flatMap((paragraph) => {
@@ -86,14 +89,18 @@ export function extractAuthors(html: string): string[] {
     const withoutBuilderClosers = paragraph.replace(/(?:\s*\[\/[a-z0-9_-]+\])+\s*$/gi, "");
     const firstBreak = withoutBuilderClosers.search(/<br\s*\/?\s*>/i);
     const signatureStart = [...withoutBuilderClosers.matchAll(/<(?:i|em)\b[^>]*>/gi)]
-      .filter((match) => match.index < firstBreak)
+      .filter(
+        (match) =>
+          match.index < firstBreak &&
+          /[a-z]/i.test(stripHtml(withoutBuilderClosers.slice(match.index, firstBreak))),
+      )
       .at(-1)?.index;
     const signatureBody =
       signatureStart === undefined
         ? withoutBuilderClosers
         : withoutBuilderClosers.slice(signatureStart);
     const lines = stripHtml(signatureBody).split("\n");
-    if (!lines.slice(1).some((line) => /ecclesia/i.test(line))) return [];
+    if (!lines.slice(1).some((line) => /\becclesia\b|\bCBMA Links? for\b/i.test(line))) return [];
     const firstLine = lines[0]?.trim() ?? "";
     const beforeLocation = firstLine.replace(/,\s*$/, "").trim();
     return splitAuthorLine(beforeLocation);
@@ -163,7 +170,8 @@ async function mapRecord(
 ): Promise<FeedItem> {
   const content = record.content?.rendered ?? "";
   const canonicalUrl = normalizeCanonicalUrl(record.link);
-  let authors = authorOverrides[canonicalUrl] ?? extractAuthors(content);
+  const override = authorOverrides[canonicalUrl];
+  let authors = override?.length ? override : extractAuthors(content);
   if (authors.length === 0 && allowPageFallback) {
     authors = await fallbackAuthorsFromPage(record.link, fetcher);
   }
@@ -349,6 +357,8 @@ export function mergeItems(items: FeedItem[]): FeedItem[] {
 
 export async function buildTidingsFeed(options: TidingsOptions): Promise<FeedResult> {
   const fetcher = options.fetcher ?? fetch;
+  const authorOverrides: Record<string, string[]> =
+    options.authorOverrides ?? tidingsAuthorOverrides;
   let sourceResults = await Promise.all(SOURCE_TYPES.map((source) => fetchSource(source, options)));
   const usableSources = sourceResults.filter(
     (result) => result.diagnostic.ok || result.records.length > 0,
@@ -362,7 +372,7 @@ export async function buildTidingsFeed(options: TidingsOptions): Promise<FeedRes
     sourceResults.flatMap((result) => result.records),
     fetcher,
     options.pageFallbackLimit ?? 0,
-    options.authorOverrides ?? tidingsAuthorOverrides,
+    authorOverrides,
   );
   let items = mergeItems(mapped);
   if (options.mode === "rolling") {
@@ -400,7 +410,7 @@ export async function buildTidingsFeed(options: TidingsOptions): Promise<FeedRes
         newRecords,
         fetcher,
         options.pageFallbackLimit ?? 0,
-        options.authorOverrides ?? tidingsAuthorOverrides,
+        authorOverrides,
       );
       mapped = [...mapped, ...newlyMapped];
       items = mergeItems(mapped);
@@ -416,7 +426,7 @@ export async function buildTidingsFeed(options: TidingsOptions): Promise<FeedRes
   );
   const sourceFailed = sourceResults.some((result) => !result.diagnostic.ok);
   const unresolvedAuthorUrls = items
-    .filter((item) => item.usedFallbackAuthor)
+    .filter((item) => item.usedFallbackAuthor && authorOverrides[item.url]?.length !== 0)
     .map((item) => item.url);
   const authorFallbackThreshold = options.authorFallbackThreshold ?? 0;
   const authorFallbackExceeded = unresolvedAuthorUrls.length > authorFallbackThreshold;

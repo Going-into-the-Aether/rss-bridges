@@ -1,0 +1,85 @@
+[
+  {
+    "type": "articles",
+    "slug": "building-relationships-gods-way-part-3",
+    "content": "<p class=\"p9\"><span class=\"s3\"><i>David Fraser</i></span><i>,<br />\nPinetown Ecclesia, South Africa</i></p>\n<div style=\"line-height: 14px; font-size: 12px;\">\n<ol>\n<li>\n<p class=\"p1\">All Bible references are from the NKJV unless otherwise stated.</p>\n</li>\n</ol>\n</div>",
+    "authors": ["David Fraser"],
+    "pageByline": "<div style=\"float:left;font-size:16px\">By <b>David Fraser</b></div>"
+  },
+  {
+    "type": "articles",
+    "slug": "fellowship-in-oaxaca",
+    "content": "<p class=\"p4\"><i>David Collister,<br />\nCBMA Link for Mexico</i></p>",
+    "authors": ["David Collister"],
+    "pageByline": "<div style=\"float:left;font-size:16px\">By <b>David Collister</b></div>"
+  },
+  {
+    "type": "articles",
+    "slug": "held-in-his-hands-book-excerpt",
+    "content": "<p class=\"p6\"><i>Anna Tikvah</i><i></i></p>",
+    "authors": ["Anna Tikvah"],
+    "pageByline": "<div style=\"float:left;font-size:16px\">By <b>Anna Tikvah</b></div>"
+  },
+  {
+    "type": "articles",
+    "slug": "in-memory-of-peter-hemingray",
+    "content": "<p class=\"p4\"><span class=\"s1\"><i>Joe Hill</i></span><i>,<br />\nAustin Leander Ecclesia, TX</i></p>\n<p class=\"p1\"><i>(Editor: Bro. Joe was the Chairman of the Tidings Publishing Committee while Bro. Peter was the Editor of the magazine).</i></p>",
+    "authors": ["Joe Hill"],
+    "pageByline": "<div style=\"float:left;font-size:16px\">By <b>Joe Hill</b></div>"
+  },
+  {
+    "type": "articles",
+    "slug": "letters-to-the-editor-september-2026",
+    "content": "<p class=\"p3\"><i>Barbara Abel, Barrie Ecclesia, ON</i><i></i></p>\n<p class=\"p3\"><i>Ross Hyndman, Golden Grove Ecclesia, SA</i><i></i></p>",
+    "authors": ["Various readers"],
+    "pageByline": "<div style=\"float:left;font-size:16px\">By <b>Various readers</b></div>"
+  },
+  {
+    "type": "articles",
+    "slug": "the-faith-of-jesus",
+    "content": "<p class=\"p6\"><i>Jason Hensley</i></p>",
+    "authors": ["Jason Hensley"],
+    "pageByline": "<div style=\"float:left;font-size:16px\">By <b>Jason Hensley</b></div>"
+  },
+  {
+    "type": "magazine",
+    "slug": "a-visit-to-peru",
+    "content": "<p class=\"p4\"><i>Jim and Jean Hunter,<br />\nCBMA Links for Peru</i></p>",
+    "authors": ["Jim and Jean Hunter"],
+    "pageByline": "<div style=\"float:left;font-size:16px\">By <b>Jim and Jean Hunter</b></div>"
+  },
+  {
+    "type": "magazine",
+    "slug": "building-relationships-gods-way-part-4",
+    "content": "<p class=\"p6\"><span class=\"s2\"><i>David Fraser</i></span><i>,<br />\nPinetown Ecclesia, South Africa</i></p>\n<div style=\"line-height: 14px; font-size: 12px;\">\n<ol>\n<li>\n<p class=\"p1\">All Bible references are from the NKJV unless otherwise stated.</p>\n</li>\n</ol>\n</div>",
+    "authors": ["David Fraser"],
+    "pageByline": "<div style=\"float:left;font-size:16px\">By <b>David Fraser</b></div>"
+  },
+  {
+    "type": "magazine",
+    "slug": "fear-and-belief",
+    "content": "<p class=\"p8\"><i>Jason Hensley</i></p>\n<div style=\"line-height: 14px; font-size: 12px;\">\n<ol>\n<li>\n<p class=\"p1\">All quotations, unless otherwise noted, are from the <i>English Standard Version</i>.</p>\n</li>\n</ol>\n</div>",
+    "authors": ["Jason Hensley"]
+  },
+  {
+    "type": "magazine",
+    "slug": "growing-together-through-joy-and-sorrow",
+    "content": "<p class=\"p4\"><i>Kevin and Rebekah Hunter,<br />\nCBMA Links for Ecuador</i><i></i></p>",
+    "authors": ["Kevin and Rebekah Hunter"],
+    "pageByline": "<div style=\"float:left;font-size:16px\">By <b>Kevin and Rebekah Hunter</b></div>"
+  },
+  {
+    "type": "magazine",
+    "slug": "held-in-his-hands-book-excerpt-chapter-2",
+    "content": "<p class=\"p3\"><i>Anna Tikvah</i><i></i></p>",
+    "authors": ["Anna Tikvah"],
+    "pageByline": "<div style=\"float:left;font-size:16px\">By <b>Anna Tikvah</b></div>"
+  },
+  {
+    "type": "magazine",
+    "slug": "truth-corps",
+    "content": "<p style=\"text-align: center;\"><span style=\"font-size: 13px;\"><em>The 2026 Truth Corps Team</em></span></p>\n<p class=\"p1\">The following are some highlights from Truth Corps 2026, from the perspective of both leaders and members.</p>",
+    "authors": ["Truth Corps"],
+    "pageByline": "<div style=\"float:left;font-size:16px\">By <b>Truth Corps</b></div>"
+  }
+]
