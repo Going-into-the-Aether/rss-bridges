@@ -77,7 +77,7 @@ trap 'exit 129' HUP
 remove_stale_snapshot_worktrees() {
   local line wt_path="" wt_branch="" stale
   local -a stale_paths
-  for line in "${(@f)$(git worktree list --porcelain)}" ""; do
+  for line in "${(@f)$(git -C "$repo_root" worktree list --porcelain)}" ""; do
     if [[ -z "$line" ]]; then
       if [[ "$wt_branch" == "refs/heads/data" && "$wt_path" == */rss-bridges-snapshot.*/data && "$wt_path" != "$data_worktree" ]]; then
         stale_paths+=("$wt_path")
@@ -91,7 +91,7 @@ remove_stale_snapshot_worktrees() {
   done
   for stale in "${stale_paths[@]}"; do
     print -u2 "Removing stale snapshot worktree: $stale"
-    git worktree remove --force --force "$stale" || { rm -rf "$stale" && git worktree prune; } || return $?
+    git -C "$repo_root" worktree remove --force --force "$stale" || { rm -rf "$stale" && git -C "$repo_root" worktree prune; } || return $?
     rm -rf "${stale:h}" || print -u2 "Could not delete stale task directory ${stale:h}"
   done
 }
