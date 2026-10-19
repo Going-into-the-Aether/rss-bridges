@@ -63,6 +63,21 @@ describe("Tidings author extraction", () => {
     expect(extractAuthors(html)).toEqual([]);
   });
 
+  it.each([
+    "The Christadelphian",
+    "Bible Magazine",
+    "Christadelphian Bible Mission",
+    "The Christadelphian Tidings",
+  ])("rejects an organization or publication as a standalone signature: %s", (name) => {
+    expect(extractAuthors(`<p>Body text here.</p><p><em>${name}</em></p>`)).toEqual([]);
+  });
+
+  it("extracts a standalone italic author name", () => {
+    expect(extractAuthors("<p>Body text here.</p><p><em>Jason Hensley</em></p>")).toEqual([
+      "Jason Hensley",
+    ]);
+  });
+
   it("extracts the displayed single author from the signature", () => {
     expect(
       extractAuthors('<p class="p8"><i>Belinda Stone,<br />Riverwood Ecclesia, NSW</i></p>'),

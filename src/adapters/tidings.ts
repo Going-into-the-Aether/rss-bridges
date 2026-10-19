@@ -116,6 +116,14 @@ export function extractAuthors(html: string): string[] {
   const standalone = closingParagraph.match(/^<(i|em)\b[^>]*>([^<>]+)<\/\1>$/i);
   if (!standalone) return [];
   const name = stripHtml(standalone[2]);
+  if (
+    /^The /i.test(name) ||
+    /\b(?:Christadelphian|Christadelphians|Magazine|Mission|Ministry|Ministries|Bible|Committee|Fund|Trust|Association|Office|Press|Publications|School|Foundation|Society|Fellowship|Board|Council|Team|Staff)\b/i.test(
+      name,
+    )
+  ) {
+    return [];
+  }
   return /^(?:\p{Lu}[\p{L}'’.-]*)(?:\s+(?:\p{Lu}[\p{L}'’.-]*|and|&)){1,5}$/u.test(name)
     ? unique(splitAuthorLine(name))
     : [];
