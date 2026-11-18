@@ -1,13 +1,10 @@
 import { readFileSync } from "node:fs";
-import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import sanitizeHtml from "sanitize-html";
 import { describe, expect, it } from "vitest";
 
 const repoRoot = dirname(dirname(fileURLToPath(import.meta.url)));
-
-const require = createRequire(import.meta.url);
 
 type Lockfile = {
   packages: Record<string, { version?: string }>;
@@ -16,7 +13,13 @@ type Lockfile = {
 const lockfile = JSON.parse(readFileSync(join(repoRoot, "package-lock.json"), "utf8")) as Lockfile;
 
 function installedVersion(name: string): string {
-  const pkg = require(`${name}/package.json`) as { version: string };
+  // Read the installed manifest from disk. Some packages, including sharp,
+  // do not export ./package.json, so a package subpath import cannot see it.
+  const pkg = JSON.parse(
+    readFileSync(join(repoRoot, "node_modules", name, "package.json"), "utf8"),
+  ) as {
+    version: string;
+  };
   return pkg.version;
 }
 
@@ -73,6 +76,39 @@ describe("production dependency advisory floors", () => {
     expect(locked.length).toBeGreaterThan(0);
     for (const version of locked) expectAtLeast("lockfile source-map-js", version, "1.2.2");
     expectAtLeast("installed source-map-js", installedVersion("source-map-js"), "1.2.2");
+  });
+});
+
+describe("development dependency advisory floors", () => {
+  // Issue #47. picomatch 4.0.7 (GHSA-fc5q-39xc-vjpf / CVE-2026-112366) has no
+  // patched release, so it is not given a floor here.
+  it("keeps every locked and installed copy on a patched release", () => {
+    const floors = [
+      ["vite", "8.2.4"],
+      ["vitest", "4.1.12"],
+      ["@vitest/mocker", "4.1.12"],
+      ["undici", "7.30.1"],
+      ["sharp", "0.35.5"],
+      ["brace-expansion", "5.0.12"],
+      ["minimatch", "11.0.1"],
+    ] as const;
+
+    const rows = floors.map(([name, minimum]) => {
+      const locked = lockedVersions(name);
+      const installed = installedVersion(name);
+      return {
+        name,
+        minimum,
+        locked,
+        installed,
+        meetsMinimum:
+          locked.length > 0 &&
+          locked.every((version) => compareVersions(version, minimum) >= 0) &&
+          compareVersions(installed, minimum) >= 0,
+      };
+    });
+
+    expect(rows).toEqual(rows.map((row) => ({ ...row, meetsMinimum: true })));
   });
 });
 
